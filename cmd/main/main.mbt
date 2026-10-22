@@ -16,7 +16,7 @@ fn format_poles(poles : Array[@num.Complex]) -> String {
 /// MoonControl CLI Entry Point
 fn main {
   println("================================================================================")
-  println("   MoonControl 🌙🕹️ - Control System Design & Simulation Toolchain in MoonBit   ")
+  println("        MoonControl - Control System Design & Simulation in MoonBit            ")
   println("================================================================================")
   println("")
 
