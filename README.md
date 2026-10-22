@@ -15,7 +15,6 @@
 
 - **参赛项目**：MoonControl —— 纯 MoonBit 控制系统设计与闭环仿真工具链
 - **参赛选手**：[@lycvvt](https://github.com/lycvvt)
-- **申报说明书**：详见 [PROPOSAL.md](PROPOSAL.md)
 - **初审与自查报告**：详见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)
 - **理论公式推导**：详见 [docs/formula_derivations.md](docs/formula_derivations.md)
 - **Web 交互仿真台**：直接双击打开 [web/index.html](web/index.html)
@@ -129,7 +128,6 @@ mooncontrol/
 ├── moon.mod                    # MoonBit 模块清单
 ├── LICENSE                     # Apache-2.0 许可证
 ├── README.md                   # 项目介绍与快速开始
-├── PROPOSAL.md                 # 2026 黑客松项目申报说明书
 ├── .github/workflows/ci.yml    # GitHub Actions 自动化 CI 流水线
 ├── web/
 │   └── index.html              # 纯前端 Web 交互仿真实验工作台

@@ -18,7 +18,7 @@
 | **高精度保证** | 仿真与解析解误差需对齐控制理论公式 | 一阶与二阶阶跃响应仿真值与理论解析解最大绝对误差达到 **$10^{-14}$ 量级**，远高于赛事要求的 $10^{-9}$ | **EXCELLENT** |
 | **版本管理** | Git 规范提交次数 > 10 次，提交记录原子清晰 | 采用语义化 commit 消息（`chore:`, `feat:`, `docs:`），保留连续可追踪的演进过程 | **PASS** |
 | **持续集成** | 配置自动化 CI 工作流 | 配置 GitHub Actions (`.github/workflows/ci.yml`)，覆盖 `check` / `test` / `run` 全流程 | **PASS** |
-| **工程文档** | 完整的 README、申报书、推导文档与可复现示例 | 中英双语 README、项目申报书 `PROPOSAL.md`、250+ 行高精度公式推导笔记 `docs/formula_derivations.md`、3 个可运行的完整示例工程 | **PASS** |
+| **工程文档** | 完整的 README、推导文档与可复现示例 | 中英双语 README、250+ 行高精度公式推导笔记 `docs/formula_derivations.md`、3 个可运行的完整示例工程 | **PASS** |
 
 ---
 
