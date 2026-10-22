@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/env",
+  "lycvvt/mooncontrol/src/num",
+  "lycvvt/mooncontrol/src/tf",
+  "lycvvt/mooncontrol/src/analysis",
+  "lycvvt/mooncontrol/src/pid",
+  "lycvvt/mooncontrol/src/sim",
+  "lycvvt/mooncontrol/src/plot"
+}
+
+pkgtype(kind: "executable")

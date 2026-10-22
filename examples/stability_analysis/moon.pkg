@@ -1,0 +1,7 @@
+import {
+  "lycvvt/mooncontrol/src/num",
+  "lycvvt/mooncontrol/src/tf",
+  "lycvvt/mooncontrol/src/analysis"
+}
+
+pkgtype(kind: "executable")
