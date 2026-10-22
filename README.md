@@ -3,21 +3,30 @@
 > **MoonBit 上的控制系统设计与闭环仿真工具链**  
 > Control System Design and Simulation Toolchain in Pure MoonBit (Zero FFI)
 
+[![CI](https://github.com/lycvvt/mooncontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/lycvvt/mooncontrol/actions)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![MoonBit](https://img.shields.io/badge/MoonBit-0.1.20260920-purple.svg)](https://www.moonbitlang.com/)
-[![Tests](https://img.shields.io/badge/Tests-29%20passed-brightgreen.svg)]()
-[![Hackathon](https://img.shields.io/badge/MoonBit%20Hackathon-2026%20October-green.svg)](https://moonbitlang.github.io/Hackathon2026/)
+[![MoonBit](https://img.shields.io/badge/Language-MoonBit%200.1.20260920-purple.svg)](https://www.moonbitlang.com/)
+[![Tests](https://img.shields.io/badge/Tests-29%20passed%20(100%25)-brightgreen.svg)]()
+[![Hackathon](https://img.shields.io/badge/Event-MoonBit%20Hackathon%202026-brightgreen.svg)](https://moonbitlang.github.io/Hackathon2026/)
 
 ---
 
-## 📌 生态定位与背景
+## 📌 项目定位与赛事初审信息
 
+- **参赛项目**：MoonControl —— 纯 MoonBit 控制系统设计与闭环仿真工具链
+- **参赛选手**：[@lycvvt](https://github.com/lycvvt)
+- **申报说明书**：详见 [PROPOSAL.md](PROPOSAL.md)
+- **初审与自查报告**：详见 [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md)
+- **理论公式推导**：详见 [docs/formula_derivations.md](docs/formula_derivations.md)
+- **Web 交互仿真台**：直接双击打开 [web/index.html](web/index.html)
+
+### 生态缺口说明
 截至 2026 年 10 月，在 Mooncakes 官方全量中心（2,800+ 模块）与 GitHub 生态中检索控制理论相关主题：
 - 检索 `PID / control system / transfer function / 状态空间 / Bode / root locus / Lyapunov`
 - Mooncakes 仅有状态估计类库（如 Kalman 滤波）与形式化验证库，**没有任何面向控制器设计、经典控制理论与闭环仿真的工具链**。
 - GitHub 检索 `moonbit control system` 与 `moonbit pid` 结果均为 0。
 
-**MoonControl** 旨在填补这一生态空白，为 MoonBit 开发者与系统工程师提供一套纯 MoonBit 实现、**完全零 FFI** 的高精度控制系统分析、设计与时域仿真基础库。
+**MoonControl** 补全了 MoonBit 在工业自动化与控制理论计算领域的生态空白。
 
 ---
 
@@ -31,7 +40,7 @@
   - **稳定性分析**：Routh-Hurwitz 代数判据（支持首列元素为 0 微扰与全零行辅助多项式求导退化处理），与极点实部联合判定。
   - **PID 控制器**：连续形式与离散位置式 PID，内置积分限幅（Anti-windup）与一阶低通微分滤波。
   - **时域仿真引擎**：经典四阶 Runge-Kutta (RK4) 高精度数值积分器。
-  - **可视化图表**：自研轻量级 SVG 矢量图与终端 ASCII 字符曲线生成，零外部绘图依赖。
+  - **多形态可视化**：内置终端 ASCII 字符曲线、纯 SVG 矢量图导出与零依赖 Web 交互仿真台。
 
 ---
 
@@ -60,6 +69,13 @@ moon run examples/second_order_pid
 # 示例 3: Routh-Hurwitz 阵列与零极点分布稳定性分析
 moon run examples/stability_analysis
 ```
+
+### 4. 浏览器端 Web 交互控制实验台
+无需后端依赖，直接用现代浏览器（Chrome、Edge、Safari）打开：
+```bash
+web/index.html
+```
+支持实时调节 $\omega_n$、$\zeta$、PID 参数（$K_p, K_i, K_d$），动态计算超调量、峰值时间与 Routh-Hurwitz 阵列，并实时渲染高帧率响应曲线。
 
 ---
 
@@ -95,14 +111,14 @@ moon run examples/stability_analysis
 
 | # | 测试组 | 验证内容与数学基准 | 误差指标 | 状态 |
 |---|---|---|---|---|
-| **1** | **复数代数** | 复数加减乘除、模长、幅角、极坐标与欧拉公式 $e^{i\pi} = -1$ | 手算精确对齐 |  PASSED |
-| **2** | **多项式算法** | Horner 求值、多项式乘法卷积、Durand-Kerner 复根求解 | 代数精确对齐 |  PASSED |
-| **3** | **一阶阶跃响应** | $G(s) = \frac{K}{Ts+1}$ 在 $t=T, 2T, 3T$ 与解析解 $K(1-e^{-t/T})$ 比对 | **$7.7 \times 10^{-15} < 10^{-9}$** |  PASSED |
-| **4** | **二阶阶跃响应** | 欠阻尼 ($0<\zeta<1$)、临界阻尼 ($\zeta=1$)、过阻尼 ($\zeta>1$) 解析解 | **$< 10^{-14} < 10^{-9}$** |  PASSED |
-| **5** | **动态性能指标** | 超调量 $M_p$、峰值时间 $t_p$、调节时间 $t_s$ 公式验算 | **$< 10^{-7} < 10^{-6}$** |  PASSED |
-| **6** | **稳态误差分析** | 0 型/1 型系统在阶跃与斜坡输入下，对比拉氏变换终值定理 | 绝对一致 |  PASSED |
-| **7** | **稳定性交叉验证** | Routh-Hurwitz 阵列判定与极点实部分布 $\text{Re}(p) < 0$ 严格对齐 | 符号一致性 100% |  PASSED |
-| **8** | **闭环时域仿真** | 受控对象闭环仿真轨迹与标准二阶解析解严格对齐 | **$1.6 \times 10^{-14} < 10^{-6}$** |  PASSED |
+| **1** | **复数代数** | 复数加减乘除、模长、幅角、极坐标与欧拉公式 $e^{i\pi} = -1$ | 手算精确对齐 |  **PASSED** |
+| **2** | **多项式算法** | Horner 求值、多项式乘法卷积、Durand-Kerner 复根求解 | 代数精确对齐 |  **PASSED** |
+| **3** | **一阶阶跃响应** | $G(s) = \frac{K}{Ts+1}$ 在 $t=T, 2T, 3T$ 与解析解 $K(1-e^{-t/T})$ 比对 | **$7.7 \times 10^{-15} < 10^{-9}$** |  **PASSED** |
+| **4** | **二阶阶跃响应** | 欠阻尼 ($0<\zeta<1$)、临界阻尼 ($\zeta=1$)、过阻尼 ($\zeta>1$) 解析解 | **$< 10^{-14} < 10^{-9}$** |  **PASSED** |
+| **5** | **动态性能指标** | 超调量 $M_p$、峰值时间 $t_p$、调节时间 $t_s$ 公式验算 | **$< 10^{-7} < 10^{-6}$** |  **PASSED** |
+| **6** | **稳态误差分析** | 0 型/1 型系统在阶跃与斜坡输入下，对比拉氏变换终值定理 | 绝对一致 |  **PASSED** |
+| **7** | **稳定性交叉验证** | Routh-Hurwitz 阵列判定与极点实部分布 $\text{Re}(p) < 0$ 严格对齐 | 符号一致性 100% |  **PASSED** |
+| **8** | **闭环时域仿真** | 受控对象闭环仿真轨迹与标准二阶解析解严格对齐 | **$1.6 \times 10^{-14} < 10^{-6}$** |  **PASSED** |
 
 ---
 
@@ -113,7 +129,12 @@ mooncontrol/
 ├── moon.mod                    # MoonBit 模块清单
 ├── LICENSE                     # Apache-2.0 许可证
 ├── README.md                   # 项目介绍与快速开始
+├── PROPOSAL.md                 # 2026 黑客松项目申报说明书
+├── .github/workflows/ci.yml    # GitHub Actions 自动化 CI 流水线
+├── web/
+│   └── index.html              # 纯前端 Web 交互仿真实验工作台
 ├── docs/
+│   ├── ACCEPTANCE.md           # 结项与初审自查核验报告
 │   └── formula_derivations.md  # 详尽控制理论公式推导与算法笔记
 ├── src/
 │   ├── num/                    # 数值基础：复数、多项式 (Horner / Durand-Kerner)、矩阵

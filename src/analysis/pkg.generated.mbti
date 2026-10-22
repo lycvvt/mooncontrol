@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lycvvt/mooncontrol/src/analysis"
+
+import {
+  "lycvvt/mooncontrol/src/num",
+  "lycvvt/mooncontrol/src/tf",
+}
+
+// Values
+pub fn calculate_second_order_metrics(Double, Double) -> Result[PerformanceMetrics, String]
+
+pub fn is_stable_by_poles(@tf.TransferFunction, tolerance? : Double) -> Bool
+
+pub fn routh_hurwitz(@num.Polynomial) -> Result[RouthArray, String]
+
+pub fn steady_state_error(@tf.TransferFunction, InputType) -> Result[Double, String]
+
+pub fn step_response_first_order(Double, Double, Double) -> Result[Double, String]
+
+pub fn step_response_second_order(Double, Double, Double) -> Result[Double, String]
+
+// Errors
+
+// Types and methods
+pub(all) enum InputType {
+  Step
+  Ramp
+  Parabolic
+} derive(Eq)
+pub fn InputType::equal(Self, Self) -> Bool
+pub fn InputType::not_equal(Self, Self) -> Bool
+
+pub(all) struct PerformanceMetrics {
+  overshoot_fraction : Double
+  overshoot_percent : Double
+  peak_time : Double
+  rise_time : Double
+  settling_time_2pct : Double
+  settling_time_5pct : Double
+} derive(Eq)
+pub fn PerformanceMetrics::equal(Self, Self) -> Bool
+pub fn PerformanceMetrics::not_equal(Self, Self) -> Bool
+pub fn PerformanceMetrics::output(Self, &Logger) -> Unit
+pub fn PerformanceMetrics::to_string(Self) -> String
+pub impl Show for PerformanceMetrics
+
+pub(all) struct RouthArray {
+  rows : Array[Array[Double]]
+  sign_changes : Int
+  is_stable : Bool
+} derive(Eq)
+pub fn RouthArray::equal(Self, Self) -> Bool
+pub fn RouthArray::not_equal(Self, Self) -> Bool
+pub fn RouthArray::output(Self, &Logger) -> Unit
+pub fn RouthArray::to_string(Self) -> String
+pub impl Show for RouthArray
+
+// Type aliases
+
+// Traits

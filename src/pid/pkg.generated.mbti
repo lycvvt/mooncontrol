@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lycvvt/mooncontrol/src/pid"
+
+import {
+  "lycvvt/mooncontrol/src/tf",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct PIDController {
+  kp : Double
+  ki : Double
+  kd : Double
+  integral_limit : Double?
+  output_min : Double?
+  output_max : Double?
+  filter_coeff : Double
+  mut integral : Double
+  mut prev_error : Double
+  mut filtered_derivative : Double
+  mut initialized : Bool
+}
+pub fn PIDController::new(Double, Double, Double, integral_limit? : Double, output_min? : Double, output_max? : Double, filter_coeff? : Double) -> Self
+pub fn PIDController::output(Self, &Logger) -> Unit
+pub fn PIDController::reset(Self) -> Unit
+pub fn PIDController::to_string(Self) -> String
+pub fn PIDController::to_transfer_function(Self) -> Result[@tf.TransferFunction, String]
+pub fn PIDController::update(Self, Double, Double, Double) -> Double
+pub impl Show for PIDController
+
+// Type aliases
+
+// Traits

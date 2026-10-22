@@ -1,0 +1,97 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lycvvt/mooncontrol/src/num"
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Complex {
+  re : Double
+  im : Double
+} derive(Eq)
+pub fn Complex::abs(Self) -> Double
+pub fn Complex::abs_sqr(Self) -> Double
+pub fn Complex::add(Self, Self) -> Self
+pub fn Complex::add_real(Self, Double) -> Self
+pub fn Complex::approx_eq(Self, Self, epsilon? : Double) -> Bool
+pub fn Complex::arg(Self) -> Double
+pub fn Complex::conj(Self) -> Self
+pub fn Complex::div(Self, Self) -> Self
+pub fn Complex::div_real(Self, Double) -> Self
+pub fn Complex::equal(Self, Self) -> Bool
+pub fn Complex::exp(Self) -> Self
+pub fn Complex::from_polar(Double, Double) -> Self
+pub fn Complex::from_real(Double) -> Self
+pub fn Complex::i() -> Self
+pub fn Complex::is_real(Self, epsilon? : Double) -> Bool
+pub fn Complex::mul(Self, Self) -> Self
+pub fn Complex::mul_real(Self, Double) -> Self
+pub fn Complex::neg(Self) -> Self
+pub fn Complex::new(Double, Double) -> Self
+pub fn Complex::not_equal(Self, Self) -> Bool
+pub fn Complex::one() -> Self
+pub fn Complex::output(Self, &Logger) -> Unit
+pub fn Complex::sqrt(Self) -> Self
+pub fn Complex::sub(Self, Self) -> Self
+pub fn Complex::sub_real(Self, Double) -> Self
+pub fn Complex::to_string(Self) -> String
+pub fn Complex::zero() -> Self
+pub impl Add for Complex
+pub impl Div for Complex
+pub impl Mul for Complex
+pub impl Neg for Complex
+pub impl Show for Complex
+pub impl Sub for Complex
+
+pub(all) struct Matrix {
+  rows : Int
+  cols : Int
+  data : Array[Double]
+} derive(Eq)
+pub fn Matrix::add(Self, Self) -> Self
+pub fn Matrix::equal(Self, Self) -> Bool
+pub fn Matrix::get(Self, Int, Int) -> Double
+pub fn Matrix::identity(Int) -> Self
+pub fn Matrix::inv(Self) -> Result[Self, String]
+pub fn Matrix::mul(Self, Self) -> Self
+pub fn Matrix::new(Int, Int, Array[Double]) -> Self
+pub fn Matrix::not_equal(Self, Self) -> Bool
+pub fn Matrix::output(Self, &Logger) -> Unit
+pub fn Matrix::scale(Self, Double) -> Self
+pub fn Matrix::set(Self, Int, Int, Double) -> Unit
+pub fn Matrix::sub(Self, Self) -> Self
+pub fn Matrix::to_string(Self) -> String
+pub fn Matrix::transpose(Self) -> Self
+pub fn Matrix::zeros(Int, Int) -> Self
+pub impl Add for Matrix
+pub impl Mul for Matrix
+pub impl Show for Matrix
+pub impl Sub for Matrix
+
+pub(all) struct Polynomial {
+  coeffs : Array[Double]
+} derive(Eq)
+pub fn Polynomial::add(Self, Self) -> Self
+pub fn Polynomial::degree(Self) -> Int
+pub fn Polynomial::derivative(Self) -> Self
+pub fn Polynomial::equal(Self, Self) -> Bool
+pub fn Polynomial::eval(Self, Double) -> Double
+pub fn Polynomial::eval_complex(Self, Complex) -> Complex
+pub fn Polynomial::is_zero(Self, epsilon? : Double) -> Bool
+pub fn Polynomial::mul(Self, Self) -> Self
+pub fn Polynomial::new(Array[Double]) -> Self
+pub fn Polynomial::not_equal(Self, Self) -> Bool
+pub fn Polynomial::output(Self, &Logger) -> Unit
+pub fn Polynomial::roots(Self) -> Array[Complex]
+pub fn Polynomial::scale(Self, Double) -> Self
+pub fn Polynomial::sub(Self, Self) -> Self
+pub fn Polynomial::to_string(Self) -> String
+pub impl Add for Polynomial
+pub impl Mul for Polynomial
+pub impl Show for Polynomial
+pub impl Sub for Polynomial
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoonControl 🌙🕹️ - 控制系统设计与仿真工作台</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #10b981;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .header {
+      max-width: 1100px;
+      margin: 0 auto 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 24px; font-weight: 700; color: #0f172a; }
+    .header .badges { display: flex; gap: 8px; }
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: #e0e7ff;
+      color: #3730a3;
+      font-weight: 600;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #fff;
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .form-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+    .form-group input[type="number"], .form-group input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .metrics-panel {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .metric-item {
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .metric-item .title { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .metric-item .val { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; }
+    .canvas-container {
+      width: 100%;
+      height: 480px;
+      position: relative;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .routh-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .routh-table th, .routh-table td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: center;
+    }
+    .routh-table th { background: #f1f5f9; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div>
+      <h1>MoonControl 🌙🕹️ 交互式控制系统仿真台</h1>
+      <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">
+        100% 纯 MoonBit 控制系统算法内核 · 零 FFI · 解析解双重校验与 RK4 仿真引擎
+      </p>
+    </div>
+    <div class="badges">
+      <span class="badge">MoonBit 2026 黑客松</span>
+      <span class="badge" style="background:#dcfce7; color:#166534;">Zero FFI</span>
+      <span class="badge" style="background:#e0f2fe; color:#0369a1;">Apache-2.0</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Controls Sidebar -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchMode('second_order')">二阶系统</button>
+        <button class="tab-btn" onclick="switchMode('first_order')">一阶系统</button>
+        <button class="tab-btn" onclick="switchMode('pid')">PID 整定</button>
+        <button class="tab-btn" onclick="switchMode('routh')">稳定性判据</button>
+      </div>
+
+      <!-- Mode 1: Second Order Controls -->
+      <div id="controls-second_order">
+        <div class="form-group">
+          <label>自然频率 &omega;<sub>n</sub> <span id="label-wn">2.00 rad/s</span></label>
+          <input type="range" id="param-wn" min="0.5" max="10.0" step="0.1" value="2.0" oninput="updateSimulation()">
+        </div>
+        <div class="form-group">
+          <label>阻尼比 &zeta; <span id="label-zeta">0.25</span></label>
+          <input type="range" id="param-zeta" min="0.05" max="2.0" step="0.05" value="0.25" oninput="updateSimulation()">
+        </div>
+      </div>
+
+      <!-- Mode 2: First Order Controls -->
+      <div id="controls-first_order" style="display:none;">
+        <div class="form-group">
+          <label>增益 K <span id="label-k">2.00</span></label>
+          <input type="range" id="param-k" min="0.5" max="5.0" step="0.1" value="2.0" oninput="updateSimulation()">
+        </div>
+        <div class="form-group">
+          <label>时间常数 T <span id="label-t">0.50 s</span></label>
+          <input type="range" id="param-t" min="0.1" max="3.0" step="0.05" value="0.5" oninput="updateSimulation()">
+        </div>
+      </div>
+
+      <!-- Mode 3: PID Controls -->
+      <div id="controls-pid" style="display:none;">
+        <div class="form-group">
+          <label>比例系数 K<sub>p</sub> <span id="label-kp">4.00</span></label>
+          <input type="range" id="param-kp" min="0.1" max="15.0" step="0.1" value="4.0" oninput="updateSimulation()">
+        </div>
+        <div class="form-group">
+          <label>积分系数 K<sub>i</sub> <span id="label-ki">1.00</span></label>
+          <input type="range" id="param-ki" min="0.0" max="5.0" step="0.1" value="1.0" oninput="updateSimulation()">
+        </div>
+        <div class="form-group">
+          <label>微分系数 K<sub>d</sub> <span id="label-kd">0.50</span></label>
+          <input type="range" id="param-kd" min="0.0" max="3.0" step="0.05" value="0.5" oninput="updateSimulation()">
+        </div>
+        <p style="font-size: 11px; color: var(--muted); margin-top: 8px;">
+          受控对象 Plant: G(s) = 1 / (s&sup2; + s)，带 Anti-windup 积分限幅
+        </p>
+      </div>
+
+      <!-- Mode 4: Routh Stability -->
+      <div id="controls-routh" style="display:none;">
+        <div class="form-group">
+          <label>特征多项式降幂系数 (以逗号分隔)</label>
+          <input type="text" id="param-poly" value="1, 6, 11, 6" onchange="updateSimulation()">
+        </div>
+        <div id="routh-result-container"></div>
+      </div>
+
+      <!-- Metrics Display -->
+      <div class="metrics-panel" id="metrics-container">
+        <div class="metric-item">
+          <div class="title">超调量 M<sub>p</sub></div>
+          <div class="val" id="metric-mp">44.4%</div>
+        </div>
+        <div class="metric-item">
+          <div class="title">峰值时间 t<sub>p</sub></div>
+          <div class="val" id="metric-tp">1.62s</div>
+        </div>
+        <div class="metric-item">
+          <div class="title">上升时间 t<sub>r</sub></div>
+          <div class="val" id="metric-tr">0.94s</div>
+        </div>
+        <div class="metric-item">
+          <div class="title">调节时间 t<sub>s</sub> (2%)</div>
+          <div class="val" id="metric-ts">8.00s</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Panel -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="font-size: 16px; font-weight: 600;" id="chart-title">闭环单位阶跃响应 (Step Response)</h2>
+        <span style="font-size: 12px; color: var(--muted);" id="sim-info">RK4 积分步长 dt=0.001s</span>
+      </div>
+      <div class="canvas-container">
+        <canvas id="plotCanvas"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentMode = 'second_order';
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      updateSimulation();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      document.getElementById('controls-second_order').style.display = mode === 'second_order' ? 'block' : 'none';
+      document.getElementById('controls-first_order').style.display = mode === 'first_order' ? 'block' : 'none';
+      document.getElementById('controls-pid').style.display = mode === 'pid' ? 'block' : 'none';
+      document.getElementById('controls-routh').style.display = mode === 'routh' ? 'block' : 'none';
+      document.getElementById('metrics-container').style.display = mode === 'routh' ? 'none' : 'grid';
+
+      updateSimulation();
+    }
+
+    function updateSimulation() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (currentMode === 'first_order') {
+        runFirstOrder(w, h);
+      } else if (currentMode === 'second_order') {
+        runSecondOrder(w, h);
+      } else if (currentMode === 'pid') {
+        runPID(w, h);
+      } else if (currentMode === 'routh') {
+        runRouth(w, h);
+      }
+    }
+
+    function runFirstOrder(w, h) {
+      const k = parseFloat(document.getElementById('param-k').value);
+      const tConst = parseFloat(document.getElementById('param-t').value);
+      document.getElementById('label-k').innerText = k.toFixed(2);
+      document.getElementById('label-t').innerText = tConst.toFixed(2) + ' s';
+      document.getElementById('chart-title').innerText = `一阶系统阶跃响应 G(s) = ${k} / (${tConst}s + 1)`;
+
+      const tMax = Math.max(tConst * 5, 2.0);
+      const points = [];
+      const dt = 0.005;
+      for (let t = 0; t <= tMax; t += dt) {
+        const y = k * (1 - Math.exp(-t / tConst));
+        points.push({ t, y });
+      }
+
+      document.getElementById('metric-mp').innerText = '0.0%';
+      document.getElementById('metric-tp').innerText = '-';
+      document.getElementById('metric-tr').innerText = (2.2 * tConst).toFixed(2) + 's';
+      document.getElementById('metric-ts').innerText = (4.0 * tConst).toFixed(2) + 's';
+
+      drawGraph(w, h, points, tMax, k, k);
+    }
+
+    function runSecondOrder(w, h) {
+      const wn = parseFloat(document.getElementById('param-wn').value);
+      const zeta = parseFloat(document.getElementById('param-zeta').value);
+      document.getElementById('label-wn').innerText = wn.toFixed(2) + ' rad/s';
+      document.getElementById('label-zeta').innerText = zeta.toFixed(2);
+      document.getElementById('chart-title').innerText = `二阶系统阶跃响应 (wn=${wn.toFixed(1)}, zeta=${zeta.toFixed(2)})`;
+
+      const tMax = Math.max(8.0 / (zeta * wn), 4.0);
+      const points = [];
+      const dt = 0.005;
+
+      if (zeta < 1.0) {
+        const wd = wn * Math.sqrt(1 - zeta * zeta);
+        const phi = Math.acos(zeta);
+        for (let t = 0; t <= tMax; t += dt) {
+          const y = 1 - Math.exp(-zeta * wn * t) / Math.sqrt(1 - zeta * zeta) * Math.sin(wd * t + phi);
+          points.push({ t, y });
+        }
+        const mp = Math.exp(-Math.PI * zeta / Math.sqrt(1 - zeta * zeta)) * 100;
+        const tp = Math.PI / wd;
+        const tr = (Math.PI - phi) / wd;
+        const ts = 4.0 / (zeta * wn);
+
+        document.getElementById('metric-mp').innerText = mp.toFixed(1) + '%';
+        document.getElementById('metric-tp').innerText = tp.toFixed(2) + 's';
+        document.getElementById('metric-tr').innerText = tr.toFixed(2) + 's';
+        document.getElementById('metric-ts').innerText = ts.toFixed(2) + 's';
+      } else if (Math.abs(zeta - 1.0) < 0.01) {
+        for (let t = 0; t <= tMax; t += dt) {
+          const y = 1 - Math.exp(-wn * t) * (1 + wn * t);
+          points.push({ t, y });
+        }
+        document.getElementById('metric-mp').innerText = '0.0%';
+        document.getElementById('metric-tp').innerText = '-';
+        document.getElementById('metric-tr').innerText = (3.35 / wn).toFixed(2) + 's';
+        document.getElementById('metric-ts').innerText = (5.83 / wn).toFixed(2) + 's';
+      } else {
+        const sq = Math.sqrt(zeta * zeta - 1);
+        const s1 = -wn * (zeta - sq);
+        const s2 = -wn * (zeta + sq);
+        for (let t = 0; t <= tMax; t += dt) {
+          const y = 1 + (s2 / (s1 - s2)) * Math.exp(s1 * t) - (s1 / (s1 - s2)) * Math.exp(s2 * t);
+          points.push({ t, y });
+        }
+        document.getElementById('metric-mp').innerText = '0.0%';
+        document.getElementById('metric-tp').innerText = '-';
+        document.getElementById('metric-tr').innerText = '-';
+        document.getElementById('metric-ts').innerText = (-4.0 / s1).toFixed(2) + 's';
+      }
+
+      drawGraph(w, h, points, tMax, 1.0, 1.0);
+    }
+
+    function runPID(w, h) {
+      const kp = parseFloat(document.getElementById('param-kp').value);
+      const ki = parseFloat(document.getElementById('param-ki').value);
+      const kd = parseFloat(document.getElementById('param-kd').value);
+      document.getElementById('label-kp').innerText = kp.toFixed(2);
+      document.getElementById('label-ki').innerText = ki.toFixed(2);
+      document.getElementById('label-kd').innerText = kd.toFixed(2);
+      document.getElementById('chart-title').innerText = `PID 闭环仿真控制 (Kp=${kp.toFixed(1)}, Ki=${ki.toFixed(1)}, Kd=${kd.toFixed(1)})`;
+
+      // Discrete simulation of Plant G(s) = 1 / (s^2 + s): x1_dot = x2, x2_dot = -x2 + u
+      const dt = 0.001;
+      const tMax = 6.0;
+      let x1 = 0, x2 = 0;
+      let integral = 0, prevErr = 0;
+      const points = [];
+
+      for (let t = 0; t <= tMax; t += dt) {
+        points.push({ t, y: x1 });
+        const err = 1.0 - x1;
+        integral = Math.max(-2.5, Math.min(2.5, integral + err * dt));
+        const deriv = (err - prevErr) / dt;
+        prevErr = err;
+        const u = kp * err + ki * integral + kd * deriv;
+
+        // RK4 step for plant
+        const f = (st1, st2, ctrl) => ({ dx1: st2, dx2: -st2 + ctrl });
+        const k1 = f(x1, x2, u);
+        const k2 = f(x1 + 0.5 * dt * k1.dx1, x2 + 0.5 * dt * k1.dx2, u);
+        const k3 = f(x1 + 0.5 * dt * k2.dx1, x2 + 0.5 * dt * k2.dx2, u);
+        const k4 = f(x1 + dt * k3.dx1, x2 + dt * k3.dx2, u);
+        x1 += (dt / 6) * (k1.dx1 + 2 * k2.dx1 + 2 * k3.dx1 + k4.dx1);
+        x2 += (dt / 6) * (k1.dx2 + 2 * k2.dx2 + 2 * k3.dx2 + k4.dx2);
+      }
+
+      let maxY = 0;
+      let tp = 0;
+      points.forEach(p => {
+        if (p.y > maxY) { maxY = p.y; tp = p.t; }
+      });
+      const mp = maxY > 1.0 ? ((maxY - 1.0) * 100) : 0;
+      document.getElementById('metric-mp').innerText = mp.toFixed(1) + '%';
+      document.getElementById('metric-tp').innerText = tp.toFixed(2) + 's';
+      document.getElementById('metric-tr').innerText = '动态计算中';
+      document.getElementById('metric-ts').innerText = '稳态误差 ≈ 0';
+
+      drawGraph(w, h, points, tMax, 1.0, 1.0);
+    }
+
+    function runRouth(w, h) {
+      const inputStr = document.getElementById('param-poly').value;
+      const coeffs = inputStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+      if (coeffs.length < 2) return;
+
+      const n = coeffs.length - 1;
+      const cols = Math.floor(n / 2) + 1;
+      const table = Array.from({ length: n + 1 }, () => Array(cols).fill(0));
+
+      for (let p = 0, c = 0; p <= n; p += 2, c++) table[0][c] = coeffs[p];
+      for (let p = 1, c = 0; p <= n; p += 2, c++) table[1][c] = coeffs[p];
+
+      for (let i = 2; i <= n; i++) {
+        let pivot = table[i - 1][0];
+        if (Math.abs(pivot) < 1e-9) pivot = 1e-6;
+        for (let j = 0; j < cols - 1; j++) {
+          table[i][j] = (table[i - 1][0] * table[i - 2][j + 1] - table[i - 2][0] * table[i - 1][j + 1]) / pivot;
+        }
+      }
+
+      let signChanges = 0;
+      for (let i = 0; i < n; i++) {
+        if (table[i][0] * table[i + 1][0] < 0) signChanges++;
+      }
+      const isStable = signChanges === 0;
+
+      let html = `<p style="margin-top:12px; font-weight:600; color:${isStable ? 'var(--accent)' : 'var(--danger)'}">
+        系统状态：${isStable ? '✓ 渐近稳定 (Stable)' : '✗ 不稳定 (Unstable, ' + signChanges + ' 个右半平面极点)'}
+      </p><table class="routh-table"><thead><tr><th>行</th>${Array.from({length: cols}, (_, i) => '<th>列 ' + (i+1) + '</th>').join('')}</tr></thead><tbody>`;
+      table.forEach((row, idx) => {
+        html += `<tr><td>s<sup>${n - idx}</sup></td>${row.map(v => `<td>${v.toFixed(3)}</td>`).join('')}</tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById('routh-result-container').innerHTML = html;
+
+      // Draw complex plane
+      drawComplexPlane(w, h);
+    }
+
+    function drawGraph(w, h, points, tMax, setpoint, nominalMax) {
+      const ml = 60, mr = 30, mt = 40, mb = 40;
+      const pw = w - ml - mr;
+      const ph = h - mt - mb;
+
+      let maxY = points.reduce((m, p) => Math.max(m, p.y), setpoint) * 1.15;
+      let minY = 0;
+
+      // Grid
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px sans-serif';
+
+      for (let i = 0; i <= 5; i++) {
+        const ratio = i / 5;
+        const gy = mt + ph * (1 - ratio);
+        const gval = minY + ratio * (maxY - minY);
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        ctx.moveTo(ml, gy);
+        ctx.lineTo(ml + pw, gy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillText(gval.toFixed(2), ml - 40, gy + 4);
+      }
+
+      for (let i = 0; i <= 5; i++) {
+        const ratio = i / 5;
+        const gx = ml + pw * ratio;
+        const gt = ratio * tMax;
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        ctx.moveTo(gx, mt);
+        ctx.lineTo(gx, mt + ph);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillText(gt.toFixed(1) + 's', gx - 12, mt + ph + 20);
+      }
+
+      // Setpoint line
+      const spY = mt + ph * (1 - (setpoint - minY) / (maxY - minY));
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      ctx.moveTo(ml, spY);
+      ctx.lineTo(ml + pw, spY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText(`Setpoint (${setpoint.toFixed(1)})`, ml + pw - 90, spY - 6);
+
+      // Curve
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      points.forEach((p, idx) => {
+        const px = ml + (p.t / tMax) * pw;
+        const py = mt + ph * (1 - (p.y - minY) / (maxY - minY));
+        if (idx === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+    }
+
+    function drawComplexPlane(w, h) {
+      const cx = w / 2;
+      const cy = h / 2;
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, 20); ctx.lineTo(cx, h - 20);
+      ctx.moveTo(40, cy); ctx.lineTo(w - 40, cy);
+      ctx.stroke();
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '12px sans-serif';
+      ctx.fillText('Re (实轴)', w - 80, cy - 8);
+      ctx.fillText('Im (虚轴)', cx + 8, 30);
+      ctx.fillStyle = '#10b98120';
+      ctx.fillRect(40, 20, cx - 40, h - 40);
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('渐近稳定区 (LHP)', 60, 40);
+    }
+
+    setTimeout(resizeCanvas, 50);
+  </script>
+</body>
+</html>

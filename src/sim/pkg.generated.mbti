@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lycvvt/mooncontrol/src/sim"
+
+import {
+  "lycvvt/mooncontrol/src/pid",
+  "lycvvt/mooncontrol/src/tf",
+}
+
+// Values
+pub fn error_against_first_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
+
+pub fn error_against_second_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
+
+pub fn simulate_closed_loop_pid(@tf.TransferFunction, @pid.PIDController, Double, setpoint? : Double, dt? : Double) -> Result[SimulationResult, String]
+
+pub fn simulate_step(@tf.TransferFunction, Double, dt? : Double) -> Result[SimulationResult, String]
+
+// Errors
+
+// Types and methods
+pub(all) struct SimulationResult {
+  times : Array[Double]
+  outputs : Array[Double]
+  inputs : Array[Double]
+} derive(Eq)
+pub fn SimulationResult::equal(Self, Self) -> Bool
+pub fn SimulationResult::not_equal(Self, Self) -> Bool
+pub fn SimulationResult::output(Self, &Logger) -> Unit
+pub fn SimulationResult::to_string(Self) -> String
+pub impl Show for SimulationResult
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "lycvvt/mooncontrol/src/tf"
+
+import {
+  "lycvvt/mooncontrol/src/num",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct TransferFunction {
+  num : @num.Polynomial
+  den : @num.Polynomial
+} derive(Eq)
+pub fn TransferFunction::add(Self, Self) -> Self
+pub fn TransferFunction::dc_gain(Self) -> Double?
+pub fn TransferFunction::div(Self, Self) -> Self
+pub fn TransferFunction::equal(Self, Self) -> Bool
+pub fn TransferFunction::eval_complex(Self, @num.Complex) -> @num.Complex
+pub fn TransferFunction::feedback(Self, Self, sign? : Double) -> Self
+pub fn TransferFunction::first_order(Double, Double) -> Result[Self, String]
+pub fn TransferFunction::from_coeffs(Array[Double], Array[Double]) -> Result[Self, String]
+pub fn TransferFunction::mul(Self, Self) -> Self
+pub fn TransferFunction::new(@num.Polynomial, @num.Polynomial) -> Result[Self, String]
+pub fn TransferFunction::not_equal(Self, Self) -> Bool
+pub fn TransferFunction::order(Self) -> Int
+pub fn TransferFunction::output(Self, &Logger) -> Unit
+pub fn TransferFunction::poles(Self) -> Array[@num.Complex]
+pub fn TransferFunction::scale(Self, Double) -> Self
+pub fn TransferFunction::second_order(Double, Double) -> Result[Self, String]
+pub fn TransferFunction::sub(Self, Self) -> Self
+pub fn TransferFunction::to_string(Self) -> String
+pub fn TransferFunction::unity_feedback(Self) -> Self
+pub fn TransferFunction::zeros(Self) -> Array[@num.Complex]
+pub impl Add for TransferFunction
+pub impl Div for TransferFunction
+pub impl Mul for TransferFunction
+pub impl Show for TransferFunction
+pub impl Sub for TransferFunction
+
+// Type aliases
+
+// Traits
