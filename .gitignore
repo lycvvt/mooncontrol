@@ -11,3 +11,8 @@ target/
 .idea/
 *.swp
 *.swo
+
+# Local submission drafts
+*申报书*.md
+*proposal*.md
+*Proposal*.md
