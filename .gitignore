@@ -1,0 +1,13 @@
+# Build outputs
+_build/
+target/
+.mooncaches/
+*.wasm
+*.exe
+*.log
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
