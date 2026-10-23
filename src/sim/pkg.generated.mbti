@@ -2,14 +2,21 @@
 package "lycvvt/mooncontrol/src/sim"
 
 import {
+  "lycvvt/mooncontrol/src/num",
   "lycvvt/mooncontrol/src/pid",
   "lycvvt/mooncontrol/src/tf",
 }
 
 // Values
+pub fn check_system_boundaries(@tf.TransferFunction) -> SystemStabilityBound
+
 pub fn error_against_first_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
 
 pub fn error_against_second_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
+
+pub fn evaluate_rk4_convergence(@tf.TransferFunction, Double, Array[Double], (Double) -> Double) -> Result[ConvergenceStudy, String]
+
+pub fn rk4_amplification_factor(@num.Complex, Double) -> Double
 
 pub fn simulate_closed_loop_pid(@tf.TransferFunction, @pid.PIDController, Double, setpoint? : Double, dt? : Double) -> Result[SimulationResult, String]
 
@@ -18,6 +25,18 @@ pub fn simulate_step(@tf.TransferFunction, Double, dt? : Double) -> Result[Simul
 // Errors
 
 // Types and methods
+pub(all) struct ConvergenceStudy {
+  records : Array[StepConvergenceRecord]
+  mean_order : Double
+  theoretical_order : Double
+  precision_floor : Double
+} derive(Eq)
+pub fn ConvergenceStudy::equal(Self, Self) -> Bool
+pub fn ConvergenceStudy::not_equal(Self, Self) -> Bool
+pub fn ConvergenceStudy::output(Self, &Logger) -> Unit
+pub fn ConvergenceStudy::to_string(Self) -> String
+pub impl Show for ConvergenceStudy
+
 pub(all) struct SimulationResult {
   times : Array[Double]
   outputs : Array[Double]
@@ -28,6 +47,33 @@ pub fn SimulationResult::not_equal(Self, Self) -> Bool
 pub fn SimulationResult::output(Self, &Logger) -> Unit
 pub fn SimulationResult::to_string(Self) -> String
 pub impl Show for SimulationResult
+
+pub(all) struct StepConvergenceRecord {
+  dt : Double
+  max_error : Double
+  rms_error : Double
+  order_estimate : Double
+} derive(Eq)
+pub fn StepConvergenceRecord::equal(Self, Self) -> Bool
+pub fn StepConvergenceRecord::not_equal(Self, Self) -> Bool
+pub fn StepConvergenceRecord::output(Self, &Logger) -> Unit
+pub fn StepConvergenceRecord::to_string(Self) -> String
+pub impl Show for StepConvergenceRecord
+
+pub(all) struct SystemStabilityBound {
+  max_pole_magnitude : Double
+  min_pole_magnitude : Double
+  stiffness_ratio : Double
+  max_stable_dt : Double
+  recommended_dt : Double
+  is_stiff : Bool
+  is_open_loop_stable : Bool
+} derive(Eq)
+pub fn SystemStabilityBound::equal(Self, Self) -> Bool
+pub fn SystemStabilityBound::not_equal(Self, Self) -> Bool
+pub fn SystemStabilityBound::output(Self, &Logger) -> Unit
+pub fn SystemStabilityBound::to_string(Self) -> String
+pub impl Show for SystemStabilityBound
 
 // Type aliases
 

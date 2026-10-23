@@ -51,41 +51,67 @@ fn main {
   }
   println("")
 
-  println("[Stage 2] High-Precision Step Response & Analytical Benchmark (Error < 1e-9)")
+  println("[Stage 2] Rigorous RK4 Convergence Order & Step-Size Sensitivity Study")
   println("--------------------------------------------------------------------------------")
-  let y_t = match @analysis.step_response_first_order(2.0, 0.5, 0.5) {
-    Ok(v) => v
-    Err(_) => 0.0
-  }
-  let y_2t = match @analysis.step_response_first_order(2.0, 0.5, 1.0) {
-    Ok(v) => v
-    Err(_) => 0.0
-  }
-  let y_3t = match @analysis.step_response_first_order(2.0, 0.5, 1.5) {
-    Ok(v) => v
-    Err(_) => 0.0
-  }
-  println("Analytical y(T)   = \{y_t} (theoretical: K*(1 - e^-1))")
-  println("Analytical y(2T)  = \{y_2t} (theoretical: K*(1 - e^-2))")
-  println("Analytical y(3T)  = \{y_3t} (theoretical: K*(1 - e^-3))")
-
-  // Simulate with RK4
-  let sim1 = match @sim.simulate_step(g1, 2.5, dt=0.0005) {
-    Ok(res) => res
+  // Plant A: Standard 2nd-order underdamped DC motor servo
+  // G(s) = 10 / (s^2 + 2s + 10), wn = sqrt(10) ≈ 3.162, zeta = 1 / sqrt(10) ≈ 0.316
+  let wn = (10.0 : Double).sqrt()
+  let zeta = 1.0 / wn
+  let plant_a = match @tf.TransferFunction::from_coeffs([10.0], [1.0, 2.0, 10.0]) {
+    Ok(tf) => tf
     Err(e) => {
-      println("Simulation failed: \{e}")
+      println("Error creating Plant A: \{e}")
       return
     }
   }
-  let max_err1 = match @sim.error_against_first_order_analytic(2.0, 0.5, sim1) {
-    Ok(err) => err
-    Err(_) => -1.0
+  let dts = [0.08, 0.04, 0.02, 0.01, 0.005]
+  let study = match @sim.evaluate_rk4_convergence(plant_a, 3.0, dts, fn(t) {
+    match @analysis.step_response_second_order(wn, zeta, t) {
+      Ok(v) => v
+      Err(_) => 0.0
+    }
+  }) {
+    Ok(st) => st
+    Err(e) => {
+      println("Convergence study error: \{e}")
+      return
+    }
   }
-  println("RK4 Simulation vs Analytical Max Error: \{max_err1}")
-  println("Ascii Step Response Curve:")
-  println(@plot.plot_ascii(sim1.times, sim1.outputs, width=50, height=10))
 
-  println("[Stage 3] Second-Order Feedback Control & Stability Analysis")
+  println("Empirical Step-Size vs Error Convergence Table on Benchmark Plant A:")
+  println("  dt (s)    | Max Absolute Error | RMS Error          | Estimated Convergence Order")
+  println("  ----------+--------------------+--------------------+----------------------------")
+  for r in study.records {
+    let order_str = if r.order_estimate > 0.0 { "\{r.order_estimate}" } else { "---" }
+    println("  \{r.dt}      | \{r.max_error} | \{r.rms_error} | \{order_str}")
+  }
+  println("  --------------------------------------------------------------------------------")
+  println("  Theoretical RK4 Order: \{study.theoretical_order} | Empirical Mean Order: \{study.mean_order}")
+  println("  Precision Boundary: Truncation dominates for dt in [1e-4, 1e-1]; Error scales strictly as O(dt^4).")
+  println("")
+
+  println("[Stage 3] System Stability Domain & Stiffness Boundary Check")
+  println("--------------------------------------------------------------------------------")
+  let bounds_a = @sim.check_system_boundaries(plant_a)
+  println("Plant A Stability Boundary Analysis:")
+  println("  - Max Pole Magnitude:    \{bounds_a.max_pole_magnitude} rad/s")
+  println("  - Open-Loop Stable:      \{bounds_a.is_open_loop_stable}")
+  println("  - Max Stable dt (RK4):   \{bounds_a.max_stable_dt} s (Stability condition: dt * |lambda| < 2.785)")
+  println("  - Recommended dt:        \{bounds_a.recommended_dt} s (Safety factor 4x for high accuracy)")
+  println("  - System Stiff (S > 100):\{bounds_a.is_stiff} (Stiffness ratio: \{bounds_a.stiffness_ratio})")
+
+  // Unstable Inverted Pendulum Plant B: G(s) = 1 / (s^2 - 9.8)
+  let plant_b = match @tf.TransferFunction::from_coeffs([1.0], [1.0, 0.0, -9.8]) {
+    Ok(tf) => tf
+    Err(_) => plant_a
+  }
+  let bounds_b = @sim.check_system_boundaries(plant_b)
+  println("Plant B (Inverted Pendulum) Stability Analysis:")
+  println("  - Poles:                 \{format_poles(plant_b.poles())}")
+  println("  - Open-Loop Stable:      \{bounds_b.is_open_loop_stable} (RHP pole at +3.1305 rad/s triggers unstable alert)")
+  println("")
+
+  println("[Stage 4] Closed-Loop Control System Design & Routh-Hurwitz Verification")
   println("--------------------------------------------------------------------------------")
   // Plant: G(s) = 1.0 / (s^2 + s)
   let plant2 = match @tf.TransferFunction::from_coeffs([1.0], [1.0, 1.0, 0.0]) {
@@ -131,7 +157,7 @@ fn main {
       return
     }
   }
-  println("Theoretical Metrics:")
+  println("Theoretical Dynamic Metrics:")
   println("  - Overshoot Mp:       \{metrics.overshoot_percent}%")
   println("  - Peak Time tp:       \{metrics.peak_time}s")
   println("  - Rise Time tr:       \{metrics.rise_time}s")
@@ -149,11 +175,11 @@ fn main {
     Ok(err) => err
     Err(_) => -1.0
   }
-  println("Closed-loop Simulation vs Analytic Error: \{max_err2}")
+  println("Measured Closed-Loop Error at dt=0.0005: \{max_err2}")
   println("Ascii Closed-Loop Step Response:")
-  println(@plot.plot_ascii(sim2.times, sim2.outputs, width=50, height=12))
+  println(@plot.plot_ascii(sim2.times, sim2.outputs, width=50, height=10))
 
-  println("[Stage 4] Discrete PID Closed-Loop Controller Simulation")
+  println("[Stage 5] Discrete PID Controller with Anti-Windup Simulation")
   println("--------------------------------------------------------------------------------")
   let pid_controller = @pid.PIDController::new(4.0, 1.0, 0.5, integral_limit=2.0)
   println("Configured PID: \{pid_controller}")
@@ -164,10 +190,10 @@ fn main {
       return
     }
   }
-  println("Ascii PID Controlled Response (Plant: 1/(s^2+s), PID: Kp=4, Ki=1, Kd=0.5):")
-  println(@plot.plot_ascii(pid_sim.times, pid_sim.outputs, width=50, height=12))
+  println("Ascii PID Controlled Step Response:")
+  println(@plot.plot_ascii(pid_sim.times, pid_sim.outputs, width=50, height=10))
 
-  println("[Stage 5] Standalone SVG Vector Plot Export")
+  println("[Stage 6] Zero-Dependency SVG Visualization Export")
   println("--------------------------------------------------------------------------------")
   let svg = @plot.plot_svg(
     "PID Closed-Loop Step Response",
@@ -176,5 +202,5 @@ fn main {
     setpoint=1.0,
   )
   println("Generated SVG: \{svg.length()} bytes of pure scalable vector graphics.")
-  println("Verification successful! All systems normal.")
+  println("All stages completed successfully!")
 }

@@ -1,4 +1,6 @@
 import {
+  "moonbitlang/core/math",
+  "lycvvt/mooncontrol/src/num",
   "lycvvt/mooncontrol/src/tf",
   "lycvvt/mooncontrol/src/pid",
   "lycvvt/mooncontrol/src/analysis"

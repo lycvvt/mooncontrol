@@ -2,9 +2,9 @@
 package "lycvvt/mooncontrol/src/plot"
 
 // Values
-pub fn plot_ascii(Array[Double], Array[Double], width? : Int, height? : Int) -> String
+pub fn plot_ascii(Array[Double], Array[Double], width? : Int32, height? : Int32) -> String
 
-pub fn plot_svg(String, Array[Double], Array[Double], setpoint? : Double, width? : Int, height? : Int) -> String
+pub fn plot_svg(String, Array[Double], Array[Double], setpoint? : Double, width? : Int32, height? : Int32) -> String
 
 // Errors
 

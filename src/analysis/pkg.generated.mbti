@@ -46,7 +46,7 @@ pub impl Show for PerformanceMetrics
 
 pub(all) struct RouthArray {
   rows : Array[Array[Double]]
-  sign_changes : Int
+  sign_changes : Int32
   is_stable : Bool
 } derive(Eq)
 pub fn RouthArray::equal(Self, Self) -> Bool

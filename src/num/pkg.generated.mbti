@@ -45,25 +45,25 @@ pub impl Show for Complex
 pub impl Sub for Complex
 
 pub(all) struct Matrix {
-  rows : Int
-  cols : Int
+  rows : Int32
+  cols : Int32
   data : Array[Double]
 } derive(Eq)
 pub fn Matrix::add(Self, Self) -> Self
 pub fn Matrix::equal(Self, Self) -> Bool
-pub fn Matrix::get(Self, Int, Int) -> Double
-pub fn Matrix::identity(Int) -> Self
+pub fn Matrix::get(Self, Int32, Int32) -> Double
+pub fn Matrix::identity(Int32) -> Self
 pub fn Matrix::inv(Self) -> Result[Self, String]
 pub fn Matrix::mul(Self, Self) -> Self
-pub fn Matrix::new(Int, Int, Array[Double]) -> Self
+pub fn Matrix::new(Int32, Int32, Array[Double]) -> Self
 pub fn Matrix::not_equal(Self, Self) -> Bool
 pub fn Matrix::output(Self, &Logger) -> Unit
 pub fn Matrix::scale(Self, Double) -> Self
-pub fn Matrix::set(Self, Int, Int, Double) -> Unit
+pub fn Matrix::set(Self, Int32, Int32, Double) -> Unit
 pub fn Matrix::sub(Self, Self) -> Self
 pub fn Matrix::to_string(Self) -> String
 pub fn Matrix::transpose(Self) -> Self
-pub fn Matrix::zeros(Int, Int) -> Self
+pub fn Matrix::zeros(Int32, Int32) -> Self
 pub impl Add for Matrix
 pub impl Mul for Matrix
 pub impl Show for Matrix
@@ -73,7 +73,7 @@ pub(all) struct Polynomial {
   coeffs : Array[Double]
 } derive(Eq)
 pub fn Polynomial::add(Self, Self) -> Self
-pub fn Polynomial::degree(Self) -> Int
+pub fn Polynomial::degree(Self) -> Int32
 pub fn Polynomial::derivative(Self) -> Self
 pub fn Polynomial::equal(Self, Self) -> Bool
 pub fn Polynomial::eval(Self, Double) -> Double
