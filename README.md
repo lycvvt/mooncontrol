@@ -6,31 +6,30 @@
 [![CI](https://github.com/lycvvt/mooncontrol/actions/workflows/ci.yml/badge.svg)](https://github.com/lycvvt/mooncontrol/actions)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Language](https://img.shields.io/badge/Language-MoonBit-purple.svg)](https://www.moonbitlang.com/)
-[![Tests](https://img.shields.io/badge/Tests-32%2F32%20passed-success.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-35%2F35%20passed-success.svg)]()
 
 ---
 
 ## 项目概述
 
-MoonControl 是首个为 MoonBit 生态构建的原生控制理论基础库与时域仿真系统，提供连续时间线性时不变（LTI）系统建模、代数稳定性判据、动态性能指标计算、连续/离散 PID 控制以及经典四阶 Runge-Kutta（RK4）数值积分。
+MoonControl 是面向 MoonBit 生态构建的**状态空间常微分方程（ODE）数值闭环仿真与定量控制综合工具链**，涵盖连续 LTI 传递函数与状态空间建模、Kalman 能控/能观性秩判定、Ackermann 状态反馈极点配置、定量频域稳定裕度（$GM, PM, \omega_{gc}, \omega_{pc}, M_s$）求解、支持执行器限幅/反算抗饱和（Back-Calculation Anti-Windup）/纯滞后延迟（$e^{-\tau_d s}$）的混合采样闭环仿真，以及带 Richardson 后验误差证书与自适应步长控制（Adaptive RK45）的数值积分引擎。
 
-### 生态定位与差异化
-截至 2026 年 10 月，在 Mooncakes 官方中心（2,800+ 模块）中，现有控制相关组件仅停留在孤立的纯标量 PID 离散算子与卡尔曼滤波：
-- **无传递函数（$s$ 域）与状态空间多项式建模能力**；
-- **无频域（Bode / Nyquist）与代数稳定性（Routh-Hurwitz）分析能力**；
-- **无高阶微分方程高保真数值求解引擎**。
+### 生态定位与同 `CAIMEOX/symbit/symphysics/control` 的核心差异
+在 Mooncakes 官方中心中，已有符号物理控制库 [`CAIMEOX/symbit/symphysics/control`](https://mooncakes.io/docs/CAIMEOX/symbit/symphysics/control)（对齐 Python `sympy.physics.control`）实现了基于 `@symcore.Expr` 的符号传递函数代数、符号 Routh 表以及基于**拉氏逆变换部分分式展开**（`control_partial_fraction_terms`）的线性开环响应采样。
 
-MoonControl 是目前 MoonBit 生态中唯一的**全链路计算机辅助控制系统设计（CACSD）与高精度时域闭环仿真工具链**，填补了现代控制工程的基础设施空白。
+MoonControl 在重合的线性传递函数基础层之上，针对**符号拉氏变换在原理上无法处理的工程闭环仿真与定量控制综合问题**建立了核心差异：
+- **非线性与受限执行器闭环时域仿真**：拉氏部分分式展开仅对严格线性无约束系统成立；MoonControl 原生仿真执行器幅值饱和 $[u_{\min}, u_{\max}]$、速率限制 $|\dot{u}| \le r_{\max}$ 与反算抗积分饱和（Back-Calculation $K_b$）。
+- **纯滞后时间延迟 ($e^{-\tau_d s}$) 与时域外部扰动注入 $d(t)$**：`symbit` 对含 `exp(-tau*s)` 的系统直接抛出 `NotImplemented("time delay terms are not supported")`；MoonControl 通过精确环形延迟队列与子步积分原生支持时滞闭环与中途负载冲击测试。
+- **混合采样控制（连续对象 + 离散 ZOH 控制器）与采样闭环谱半径判据**：`symbit` 对离散传递函数绘图直接抛出 `TypeError`；MoonControl 支持零阶保持（ZOH）多速率子步积分，并通过增广采样闭环转移矩阵谱半径 $\rho(\mathbf{\Phi}_{\text{CL}}(T_s)) < 1$ 严格判定数字闭环稳定性。
+- **定量频域稳定裕度与状态空间极点配置**：`symbit` 仅输出绘图采样点数组；MoonControl 二分法精确求解 $GM, PM, \omega_{gc}, \omega_{pc}, M_s$，并提供状态空间能控/能观矩阵秩检测与 Ackermann 状态反馈极点配置。
 
-### 核心指标与精度承诺依据
-- **零 FFI (Zero Foreign Function Interface)**：复数代数、多项式根求解、矩阵运算、积分引擎全部使用纯 MoonBit（`.mbt`）原生实现。
-- **严格四阶龙格-库塔收敛阶**：RK4 局部截断误差 $\tau_n = \mathcal{O}(h^5)$，全局截断误差 $E = \mathcal{O}(h^4)$。在基准受控对象上实测步长敏感度，平均收敛阶达 **$4.0191$**（步长每减半误差严格缩小约 16 倍）。
-- **清晰确界的工作边界**：
-  - *高精度稳定区间*：$h \in [10^{-4}\text{s}, 10^{-2}\text{s}]$，全轨迹全局绝对误差处于 $10^{-12} \sim 10^{-7}$ 区间；
-  - *数值稳定域硬上限*：$h_{max} = \frac{2.785}{\max_i \vert\lambda_i\vert}$，自动检测极点谱半径并校验步长；
-  - *浮点精度底限*：$h < 10^{-5}\text{s}$ 触发舍入误差主导区间保护；
-  - *刚度比报警*：刚度比 $S > 100$ 时触发刚性系统微小步长告警。
-- **确定性与无异常崩溃**：核心分析与仿真函数均为纯函数设计，非法输入统一返回 `Result[T, String]`，杜绝运行时非预期 panic。
+### 数值精度保证与稳定性数学边界（无反例严格界定）
+- **无量纲渐近截断误差界与 Richardson 后验误差证书**：
+  - 废除与时间尺度/增益脱节的固定秒数区间承诺，严格按**无量纲步长** $\eta = |\lambda_{\max}| dt$ 与模态留数 $\sum |c_i|$ 度量全局误差 $\mathcal{O}(\sum |c_i| \eta^4)$；
+  - 内置步长折半 **Richardson 外推后验误差证书** $\hat{E}_{\max}(dt) = \max_k \frac{16}{15} |y^{(dt/2)}(t_k) - y^{(dt)}(t_k)|$（在基准伺服系统上与真实解析误差相对偏差 $< 0.25\%$）及**自适应步长求解器 (`simulate_step_adaptive`)**，动态缩放步长 $h_k$ 以严格满足 $(\text{atol}, \text{rtol})$ 容差。
+- **开环二维复射线稳定域与闭环采样转移矩阵谱半径充要判据**：
+  - *开环积分稳定界*：仅当全体极点满足严格 Hurwitz 条件 $\text{Re}(\lambda_i) < 0$ 时存在正稳定步长（开环不稳定系统强制返回 `max_stable_dt = 0.0`）；沿各极点真实复射线方向二分求解 $|R(r e^{j\theta_i})| = 1$ 得到精确 $r_{\text{crit}}(\theta_i)$，取 $dt_{\max,\text{open}} = \min_i \frac{r_{\text{crit}}(\arg \lambda_i)}{|\lambda_i|}$；
+  - *采样 PID 闭环充要稳定界*：构造 $(n+2)$ 维增广状态 $\mathbf{z}_k = [\mathbf{x}_k^T, I_{k-1}, e_{k-1}]^T$ 的采样转移矩阵 $\mathbf{\Phi}_{\text{CL}}(dt)$，利用 Gelfand 幂次定理计算谱半径 $\rho(\mathbf{\Phi}_{\text{CL}}(dt)) < 1.0$，彻底消除大采样周期 ZOH 失稳与未滤波高微分增益（$c b K_d > 1$）代数环失稳反例。
 
 ---
 
@@ -133,41 +132,41 @@ web/index.html
 
 ---
 
-## 同一控制对象能力对比 (Side-by-Side Comparison)
+## 同一控制对象能力对比 (`CAIMEOX/symbit/symphysics/control` vs `MoonControl`)
 
-针对典型基准被控对象（基准 A：二阶伺服电机系统 $G_A(s) = \frac{10}{s^2 + 2s + 10}$；基准 B：倒立摆不稳定系统 $G_B(s) = \frac{1}{s^2 - 9.8}$），MoonControl 与生态基础 PID 库的横向能力对比：
+在基准受控对象 A（二阶伺服电机 $G_A(s) = \frac{10}{s^2 + 2s + 10}$，带执行器限幅 $\pm 1.5$、纯滞后 $\tau_d = 0.02\text{s}$ 与负载冲击 $d = -0.4$）与基准受控对象 B（不稳定倒立摆 $G_B(s) = \frac{1}{s^2 - 9.8}$）上的同台实测对比：
 
-| 能力维度 | 生态基础 PID 库 | MoonControl 工具链 |
+| 能力维度 | `CAIMEOX/symbit/symphysics/control` | `MoonControl` 工具链 |
 | :--- | :--- | :--- |
-| **受控对象模型表示** | 无模型支持（仅纯标量误差输入） | 连续传递函数 $G(s)$、可控状态空间矩阵、零极点增益 ZPK |
-| **系统互联代数运算** | 不支持 | 串联 `*`、并联 `+`、反馈回路 `unity_feedback()` |
-| **频域与极点零点求解** | 不支持 | 复数极点求解、Bode 裕度、Nyquist 稳定性判据 |
-| **代数稳定性判定** | 不支持 | 完整 Routh-Hurwitz 阵列、首列 0 微扰、全零行导数辅助判据 |
-| **高保真时域积分** | 无求解器或一阶前向欧拉（易发散） | 四阶龙格-库塔（RK4），实测平均收敛阶 4.0191 |
-| **抗积分饱和 (Anti-Windup)** | 基础离散累加（易发散） | 动态限幅钳位（Clamping）、一阶低通微分噪声滤波 |
-| **动态性能指标自动提取** | 不支持 | 自动提取超调量 $M_p$、峰值时间 $t_p$、上升时间 $t_r$、调节时间 $t_s$ |
-| **跨平台交互与可视化** | 无 | 终端 ASCII 曲线 + 矢量 SVG 图形导出 + 零依赖 Wasm 浏览器交互工作台 |
+| **时域求解数学机制** | 符号有理分式 + 配点法拉氏部分分式展开 $\mathcal{L}^{-1}\{G(s)/s^k\}$ | 状态空间可控标准型 + 定步长/自适应 RK45 微分方程数值积分 + Richardson 后验误差认证 |
+| **执行器饱和与反算抗饱和** | **不支持**（线性拉氏变换假设控制量无穷大，无法表示非线性限幅与积分 Windup） | **原生支持 (`simulate_closed_loop_nonlinear`)**：幅值限幅、速率限制、反算抗饱和（$K_b=5$ 将超调从 $20.51\%$ 压降至 $5.81\%$） |
+| **纯滞后环节 ($e^{-\tau_d s}$) 与中途扰动** | **直接抛出异常**（`control_plots.mbt:182` `NotImplemented("time delay terms are not supported")`） | **原生支持**：精确 FIFO 环形延迟缓冲队列 + 任意时刻阶跃负载扰动注入与恢复分析 |
+| **混合采样控制（连续对象 + 离散 ZOH）** | **直接抛出异常**（`control_plots.mbt:161` 对 `DTF` 抛出 `TypeError`） | **原生支持**：多速率 ZOH 子步积分 + 采样闭环转移矩阵谱半径充要判据 $\rho(\mathbf{\Phi}_{\text{CL}}(T_s)) < 1$ |
+| **定量频域稳定裕度求解** | 仅输出 Bode/Nyquist 绘图数组，无定量裕度提取 | 二分法精确求解幅值裕度 $GM$、相角裕度 $PM$、穿越频率 $\omega_{gc}, \omega_{pc}$ 与灵敏度峰值 $M_s$ |
+| **状态空间能控/能观性与极点配置** | 无状态空间 $(\mathbf{A},\mathbf{B},\mathbf{C})$ 秩判定或反馈综合 | Kalman 能控/能观矩阵数值秩（检测零极点相消）+ Ackermann 状态反馈极点配置（镇定倒立摆 $\mathbf{K}=[41.8, 8.0]$） |
+| **时域性能与积分指标提取** | 不支持 | 自动提取超调量 $M_p$、上升/峰值/调节时间及 $\text{IAE}, \text{ISE}, \text{ITAE}$ 积分指标 |
 
-> 完整数学推导、实测代码与数据请参阅 [docs/BENCHMARK_AND_BOUNDARIES.md](docs/BENCHMARK_AND_BOUNDARIES.md)。
+> 完整源码级机制对比、数学反例剖析与实测数据请参阅 [docs/BENCHMARK_AND_BOUNDARIES.md](docs/BENCHMARK_AND_BOUNDARIES.md)。
 
 ---
 
 ## 理论验证与测试基准
 
-本项目严格建立 32 项对齐经典控制理论基准公式的自动化测试套件：
+本项目严格建立 35 项对齐经典控制理论与数值分析基准的自动化测试套件：
 
 | 编号 | 测试模块 | 验证基准与技术点 | 误差指标与实测依据 | 判定 |
 | :---: | :--- | :--- | :---: | :---: |
-| **1** | **复数运算** | 加减乘除、共轭、模长、欧拉公式 $e^{i\pi} = -1$ | 手算精确对齐 | PASS |
-| **2** | **多项式代数** | Horner 求值、多项式乘法卷积、Durand-Kerner 根求解 | 代数精确对齐 | PASS |
-| **3** | **一阶阶跃响应** | $G(s) = \frac{K}{Ts+1}$ 在 $t=T, 2T, 3T$ 与解析式比对 | **$< 10^{-12} \ll 10^{-9}$** | PASS |
-| **4** | **二阶阶跃响应** | 欠阻尼 ($0<\zeta<1$)、临界阻尼 ($\zeta=1$)、过阻尼 ($\zeta>1$) 解析解 | **$< 10^{-12} \ll 10^{-9}$** | PASS |
-| **5** | **动态性能指标** | 欠阻尼系统超调量 $M_p$、峰值时间 $t_p$、调节时间 $t_s$ 公式验算 | **$< 10^{-7} < 10^{-6}$** | PASS |
-| **6** | **稳态误差分析** | 0 型/1 型系统在阶跃与斜坡输入下对照拉氏变换终值定理 | 理论完全一致 | PASS |
-| **7** | **稳定性交叉检验** | Routh-Hurwitz 阵列符号变化与极点实部分布 $\text{Re}(p) < 0$ 比对 | 判定一致率 100% | PASS |
-| **8** | **闭环时域仿真** | 受控对象闭环 RK4 仿真轨迹与标准二阶解析解全时域比对 | **$dt=0.0005$ 时误差 $1.6 \times 10^{-14}$** | PASS |
-| **9** | **RK4 四阶收敛阶** | 步长变化敏感度测试 ($dt \in [0.005, 0.08]$)，验证 $\mathcal{O}(dt^4)$ | **实测平均收敛阶 $4.0191 \approx 4.0$** | PASS |
-| **10** | **稳定域与刚度边界** | 稳定域约束 $h < 2.785 / \vert\lambda\vert$ 与倒立摆不稳定预警 | 稳定步长上限校验通过 | PASS |
+| **1** | **复数与矩阵代数** | 复数极坐标/欧拉公式、高斯消元求逆、完全主元数值秩 | 代数精确对齐 | PASS |
+| **2** | **多项式代数与求根** | Horner 求值、卷积乘法、Durand-Kerner 复根全局迭代 | 代数精确对齐 | PASS |
+| **3** | **一阶/二阶闭式解析解** | 欠阻尼 ($0<\zeta<1$)、临界 ($\zeta=1$)、过阻尼 ($\zeta>1$) 阶跃响应 | **$< 10^{-12} \ll 10^{-9}$** | PASS |
+| **4** | **时域与积分性能指标** | 理论 $M_p, t_p, t_r, t_s$ 公式与轨迹实测 $\text{IAE}/\text{ISE}/\text{ITAE}$ | **$< 10^{-7} < 10^{-6}$** | PASS |
+| **5** | **稳态误差与劳斯判据** | 终值定理 $K_p, K_v, K_a$ 与 Routh 阵列首列零元/全零行退化处理 | 判定一致率 100% | PASS |
+| **6** | **定量频域稳定裕度** | $L(s)=\frac{2}{(s+1)^3}$ 二分法求解 $\omega_{pc}=\sqrt{3}, GM=12.04\text{dB}, PM=67.6^\circ$ | **误差 $< 10^{-3}$** | PASS |
+| **7** | **状态空间与极点配置** | Kalman 能控/能观秩（识别零极点相消）与倒立摆 Ackermann 极点配置 | **误差 $< 10^{-9}$** | PASS |
+| **8** | **无量纲收敛与后验误差证书** | 验证 $\mathcal{O}((|\lambda|dt)^4)$ 平均收敛阶 $4.0191$ 及 Richardson 后验误差证书 | **证书相对偏差 $< 0.25\%$** | PASS |
+| **9** | **自适应步长控制 (RK45)** | 快极点高增益对象 $G(s)=\frac{100}{0.02s+1}$ 自动步长缩减与拒绝重算 | **局部误差 $< 5 \times 10^{-7}$** | PASS |
+| **10** | **二维复射线与采样闭环谱半径** | 复射线稳定半径 $r_{\text{crit}}(\theta)$ 及采样闭环转移矩阵 $\rho(\mathbf{\Phi}_{\text{CL}}(dt)) < 1$ | **彻底消除稳定性反例** | PASS |
+| **11** | **非线性饱和/抗饱和/时滞闭环** | 限幅 $\pm 1.5$、纯滞后 $\tau_d=0.02\text{s}$、反算抗饱和 $K_b=5$ 与负载冲击恢复 | **超调由 $20.5\%$ 降至 $5.8\%$** | PASS |
 
 ---
 

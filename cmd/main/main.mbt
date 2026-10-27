@@ -33,7 +33,6 @@ fn main {
 
   println("[Stage 1] Numerical Core & Transfer Function Modeling")
   println("--------------------------------------------------------------------------------")
-  // First-order plant: G1(s) = 2.0 / (0.5s + 1.0)
   let g1 = match @tf.TransferFunction::first_order(2.0, 0.5) {
     Ok(tf) => tf
     Err(e) => {
@@ -42,19 +41,16 @@ fn main {
     }
   }
   println("Plant G1(s):\{g1}")
-  let p1 = g1.poles()
-  println("Poles of G1: \{format_poles(p1)}")
-
+  println("Poles of G1: \{format_poles(g1.poles())}")
   match g1.dc_gain() {
     Some(gain) => println("DC Gain: \{gain}")
     None => println("DC Gain: None")
   }
   println("")
 
-  println("[Stage 2] Rigorous RK4 Convergence Order & Step-Size Sensitivity Study")
+  println("[Stage 2] Dimensionless Scaling & A Posteriori Richardson Error Certification")
   println("--------------------------------------------------------------------------------")
-  // Plant A: Standard 2nd-order underdamped DC motor servo
-  // G(s) = 10 / (s^2 + 2s + 10), wn = sqrt(10) ≈ 3.162, zeta = 1 / sqrt(10) ≈ 0.316
+  // Plant A: Standard 2nd-order underdamped DC motor servo G(s) = 10 / (s^2 + 2s + 10)
   let wn = (10.0 : Double).sqrt()
   let zeta = 1.0 / wn
   let plant_a = match @tf.TransferFunction::from_coeffs([10.0], [1.0, 2.0, 10.0]) {
@@ -78,127 +74,94 @@ fn main {
     }
   }
 
-  println("Empirical Step-Size vs Error Convergence Table on Benchmark Plant A:")
-  println("  dt (s)    | Max Absolute Error | RMS Error          | Estimated Convergence Order")
-  println("  ----------+--------------------+--------------------+----------------------------")
+  println("Step-Size Convergence & Richardson A Posteriori Error Certificate (Plant A):")
+  println("  dt (s) | eta=|lam|*dt | True Max Error     | Richardson Est     | Order p")
+  println("  -------+--------------+--------------------+--------------------+---------")
   for r in study.records {
     let order_str = if r.order_estimate > 0.0 { "\{r.order_estimate}" } else { "---" }
-    println("  \{r.dt}      | \{r.max_error} | \{r.rms_error} | \{order_str}")
+    println("  \{r.dt}   | \{r.dimensionless_step} | \{r.max_error} | \{r.richardson_error_est} | \{order_str}")
   }
-  println("  --------------------------------------------------------------------------------")
+  println("  -------------------------------------------------------------------------")
   println("  Theoretical RK4 Order: \{study.theoretical_order} | Empirical Mean Order: \{study.mean_order}")
-  println("  Precision Boundary: Truncation dominates for dt in [1e-4, 1e-1]; Error scales strictly as O(dt^4).")
+
+  // Demonstrate Adaptive RK45 / Step-Doubling Solver on a fast high-gain plant
+  let fast_plant = @tf.TransferFunction::from_coeffs([100.0], [0.02, 1.0]).unwrap()
+  let adap_res = @sim.simulate_step_adaptive(fast_plant, 0.5, atol=1.0e-9, rtol=1.0e-8).unwrap()
+  println("  Adaptive Solver on Fast Plant G(s)=100/(0.02s+1) (lambda=-50, K=100):")
+  println("    Accepted steps: \{adap_res.accepted_steps}, Rejected steps: \{adap_res.rejected_steps}, Max local error est: \{adap_res.max_estimated_local_error}")
   println("")
 
-  println("[Stage 3] System Stability Domain & Stiffness Boundary Check")
+  println("[Stage 3] Exact 2D Stability Domain & Sampled-Data Closed-Loop Counterexamples")
   println("--------------------------------------------------------------------------------")
   let bounds_a = @sim.check_system_boundaries(plant_a)
-  println("Plant A Stability Boundary Analysis:")
-  println("  - Max Pole Magnitude:    \{bounds_a.max_pole_magnitude} rad/s")
-  println("  - Open-Loop Stable:      \{bounds_a.is_open_loop_stable}")
-  println("  - Max Stable dt (RK4):   \{bounds_a.max_stable_dt} s (Stability condition: dt * |lambda| < 2.785)")
-  println("  - Recommended dt:        \{bounds_a.recommended_dt} s (Safety factor 4x for high accuracy)")
-  println("  - System Stiff (S > 100):\{bounds_a.is_stiff} (Stiffness ratio: \{bounds_a.stiffness_ratio})")
+  println("Plant A (Open-Loop Stable Underdamped Servo) Exact Stability Boundary:")
+  println("  - Max Pole Magnitude |lambda|: \{bounds_a.max_pole_magnitude} rad/s")
+  println("  - Directional Stability Radius: \{bounds_a.min_directional_radius} (along pole ray theta = 108.43 deg)")
+  println("  - Exact Max Stable dt (RK4):   \{bounds_a.max_stable_dt} s")
 
-  // Unstable Inverted Pendulum Plant B: G(s) = 1 / (s^2 - 9.8)
-  let plant_b = match @tf.TransferFunction::from_coeffs([1.0], [1.0, 0.0, -9.8]) {
-    Ok(tf) => tf
-    Err(_) => plant_a
-  }
+  let plant_b = @tf.TransferFunction::from_coeffs([1.0], [1.0, 0.0, -9.8]).unwrap()
   let bounds_b = @sim.check_system_boundaries(plant_b)
-  println("Plant B (Inverted Pendulum) Stability Analysis:")
-  println("  - Poles:                 \{format_poles(plant_b.poles())}")
-  println("  - Open-Loop Stable:      \{bounds_b.is_open_loop_stable} (RHP pole at +3.1305 rad/s triggers unstable alert)")
+  println("Plant B (Unstable Inverted Pendulum G(s) = 1/(s^2 - 9.8)):")
+  println("  - Poles:                       \{format_poles(plant_b.poles())}")
+  println("  - Open-Loop Hurwitz Stable:    \{bounds_b.is_open_loop_stable} -> Max Open-Loop Stable dt = \{bounds_b.max_stable_dt} s")
+
+  let plant_1st = @tf.TransferFunction::from_coeffs([1.0], [1.0, 1.0]).unwrap()
+  let rho_bad_dt = @sim.closed_loop_pid_spectral_radius(plant_1st, 8.0, 4.0, 0.2, 0.5).unwrap()
+  let rho_good_dt = @sim.closed_loop_pid_spectral_radius(plant_1st, 8.0, 4.0, 0.2, 0.01).unwrap()
+  let rho_bad_kd = @sim.closed_loop_pid_spectral_radius(plant_1st, 8.0, 4.0, 1.5, 0.01).unwrap()
+  println("Sampled-Data Closed-Loop Transition Matrix Spectral Radius rho(Phi_CL(dt)):")
+  println("  - Plant 1/(s+1), PID(8, 4, 0.2) at dt=0.50s (< open-loop 2.785s): rho = \{rho_bad_dt} (> 1: UNSTABLE!)")
+  println("  - Plant 1/(s+1), PID(8, 4, 0.2) at dt=0.01s:                      rho = \{rho_good_dt} (< 1: STABLE)")
+  println("  - Plant 1/(s+1), PID(8, 4, 1.5) at dt=0.01s (c*b*Kd = 1.5 > 1):   rho = \{rho_bad_kd} (> 1: ALGEBRAIC LOOP UNSTABLE!)")
   println("")
 
-  println("[Stage 4] Closed-Loop Control System Design & Routh-Hurwitz Verification")
+  println("[Stage 4] Quantitative Frequency Margins & State-Space Pole Placement")
   println("--------------------------------------------------------------------------------")
-  // Plant: G(s) = 1.0 / (s^2 + s)
-  let plant2 = match @tf.TransferFunction::from_coeffs([1.0], [1.0, 1.0, 0.0]) {
-    Ok(tf) => tf
-    Err(e) => {
-      println("Error: \{e}")
-      return
-    }
-  }
-  println("Open-Loop Plant G(s) = 1 / (s^2 + s)")
+  let loop_tf = @tf.TransferFunction::from_coeffs([2.0], [1.0, 3.0, 3.0, 1.0]).unwrap()
+  let margins = @analysis.compute_stability_margins(loop_tf)
+  println("Open-Loop L(s) = 2 / (s + 1)^3 Quantitative Frequency Margins:")
+  println("  - Gain Margin (GM):        \{margins.gain_margin_db} dB (at w_pc = \{margins.phase_crossover_freq} rad/s)")
+  println("  - Phase Margin (PM):       \{margins.phase_margin_deg} deg (at w_gc = \{margins.gain_crossover_freq} rad/s)")
+  println("  - Sensitivity Peak (M_s):  \{margins.sensitivity_peak}")
 
-  // Proportional controller Kp = 4.0
-  let controller = match @tf.TransferFunction::from_coeffs([4.0], [1.0]) {
-    Ok(tf) => tf
-    Err(e) => {
-      println("Error: \{e}")
-      return
-    }
-  }
-  let closed_loop = (controller * plant2).unity_feedback()
-  println("Closed-Loop T(s) = C*G / (1 + C*G):\{closed_loop}")
+  let (a_pend, b_pend, _c_pend, ss_pend) = @analysis.analyze_transfer_function_state_space(plant_b).unwrap()
+  let desired_poly = @num.Polynomial::new([1.0, 8.0, 32.0]) // target poles at -4 +- 4i
+  let k_pend = @analysis.ackermann_pole_placement(a_pend, b_pend, desired_poly).unwrap()
+  println("Inverted Pendulum State-Space Synthesis (G(s) = 1 / (s^2 - 9.8)):")
+  println("  - Kalman Ranks:            Controllability = \{ss_pend.controllability_rank}/2, Observability = \{ss_pend.observability_rank}/2 (Minimal: \{ss_pend.is_minimal})")
+  println("  - Ackermann Pole Placement to s = -4 +- 4i: State Feedback Gain K = [\{k_pend[0]}, \{k_pend[1]}]")
+  println("")
 
-  let cl_poles = closed_loop.poles()
-  println("Closed-Loop Poles: \{format_poles(cl_poles)}")
-
-  // Routh-Hurwitz Stability Verification
-  let rh = match @analysis.routh_hurwitz(closed_loop.den) {
-    Ok(arr) => arr
-    Err(e) => {
-      println("Routh error: \{e}")
-      return
-    }
-  }
-  let poles_stable = @analysis.is_stable_by_poles(closed_loop)
-  println("Routh-Hurwitz Stable: \{rh.is_stable} (Sign changes: \{rh.sign_changes})")
-  println("Pole-Check Stable:    \{poles_stable}")
-
-  // Second-order metrics (wn = 2.0, zeta = 0.25)
-  let metrics = match @analysis.calculate_second_order_metrics(2.0, 0.25) {
-    Ok(m) => m
-    Err(e) => {
-      println("Metrics error: \{e}")
-      return
-    }
-  }
-  println("Theoretical Dynamic Metrics:")
-  println("  - Overshoot Mp:       \{metrics.overshoot_percent}%")
-  println("  - Peak Time tp:       \{metrics.peak_time}s")
-  println("  - Rise Time tr:       \{metrics.rise_time}s")
-  println("  - Settling Time ts:   \{metrics.settling_time_2pct}s (2% criterion)")
-
-  // RK4 Closed-loop simulation
-  let sim2 = match @sim.simulate_step(closed_loop, 4.0, dt=0.0005) {
-    Ok(res) => res
-    Err(e) => {
-      println("Simulation error: \{e}")
-      return
-    }
-  }
-  let max_err2 = match @sim.error_against_second_order_analytic(2.0, 0.25, sim2) {
-    Ok(err) => err
-    Err(_) => -1.0
-  }
-  println("Measured Closed-Loop Error at dt=0.0005: \{max_err2}")
-  println("Ascii Closed-Loop Step Response:")
-  println(@plot.plot_ascii(sim2.times, sim2.outputs, width=50, height=10))
-
-  println("[Stage 5] Discrete PID Controller with Anti-Windup Simulation")
+  println("[Stage 5] Nonlinear & Delayed Closed-Loop Simulation (Beyond Symbolic Laplace)")
   println("--------------------------------------------------------------------------------")
-  let pid_controller = @pid.PIDController::new(4.0, 1.0, 0.5, integral_limit=2.0)
-  println("Configured PID: \{pid_controller}")
-  let pid_sim = match @sim.simulate_closed_loop_pid(plant2, pid_controller, 5.0, setpoint=1.0) {
-    Ok(res) => res
-    Err(e) => {
-      println("PID simulation error: \{e}")
-      return
-    }
-  }
-  println("Ascii PID Controlled Step Response:")
-  println(@plot.plot_ascii(pid_sim.times, pid_sim.outputs, width=50, height=10))
+  let pid_ctrl = @pid.PIDController::new(2.5, 4.0, 0.4, integral_limit=1.5, output_min=-1.5, output_max=1.5)
+  println("Configured Discrete PID Controller: \{pid_ctrl}")
+  let sim_no_aw = @sim.simulate_closed_loop_nonlinear(
+    plant_a, 2.5, 4.0, 0.4, 5.0,
+    setpoint=1.0, dt=0.005, u_min=-1.5, u_max=1.5,
+    anti_windup_kb=0.0, transport_delay=0.02,
+    disturbance_time=2.5, disturbance_magnitude=-0.4,
+  ).unwrap()
+  let sim_with_aw = @sim.simulate_closed_loop_nonlinear(
+    plant_a, 2.5, 4.0, 0.4, 5.0,
+    setpoint=1.0, dt=0.005, u_min=-1.5, u_max=1.5,
+    anti_windup_kb=5.0, transport_delay=0.02,
+    disturbance_time=2.5, disturbance_magnitude=-0.4,
+  ).unwrap()
+  let m_no_aw = @sim.measure_trajectory_metrics(sim_no_aw, setpoint=1.0)
+  let m_with_aw = @sim.measure_trajectory_metrics(sim_with_aw, setpoint=1.0)
+  println("Plant A with Saturation [-1.5, 1.5], Transport Delay tau=0.02s, Disturbance d=-0.4 at t=2.5s:")
+  println("  - Without Back-Calc Anti-Windup (kb=0): Overshoot = \{m_no_aw.overshoot_percent}%, IAE = \{m_no_aw.iae}, ITAE = \{m_no_aw.itae}")
+  println("  - With Back-Calc Anti-Windup    (kb=5): Overshoot = \{m_with_aw.overshoot_percent}%, IAE = \{m_with_aw.iae}, ITAE = \{m_with_aw.itae}")
+  println("Ascii Nonlinear Anti-Windup Closed-Loop Response:")
+  println(@plot.plot_ascii(sim_with_aw.times, sim_with_aw.outputs, width=50, height=10))
 
   println("[Stage 6] Zero-Dependency SVG Visualization Export")
   println("--------------------------------------------------------------------------------")
   let svg = @plot.plot_svg(
-    "PID Closed-Loop Step Response",
-    pid_sim.times,
-    pid_sim.outputs,
+    "Nonlinear Anti-Windup PID Step & Disturbance Response",
+    sim_with_aw.times,
+    sim_with_aw.outputs,
     setpoint=1.0,
   )
   println("Generated SVG: \{svg.length()} bytes of pure scalable vector graphics.")

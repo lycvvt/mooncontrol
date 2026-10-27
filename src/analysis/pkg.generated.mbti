@@ -7,9 +7,21 @@ import {
 }
 
 // Values
+pub fn ackermann_pole_placement(@num.Matrix, @num.Matrix, @num.Polynomial) -> Result[Array[Double], String]
+
+pub fn analyze_transfer_function_state_space(@tf.TransferFunction) -> Result[(@num.Matrix, @num.Matrix, @num.Matrix, StateSpaceAnalysis), String]
+
 pub fn calculate_second_order_metrics(Double, Double) -> Result[PerformanceMetrics, String]
 
+pub fn compute_stability_margins(@tf.TransferFunction, omega_min? : Double, omega_max? : Double, num_points? : Int32) -> StabilityMargins
+
+pub fn controllability_matrix(@num.Matrix, @num.Matrix) -> Result[@num.Matrix, String]
+
 pub fn is_stable_by_poles(@tf.TransferFunction, tolerance? : Double) -> Bool
+
+pub fn matrix_rank(@num.Matrix, tol? : Double) -> Int32
+
+pub fn observability_matrix(@num.Matrix, @num.Matrix) -> Result[@num.Matrix, String]
 
 pub fn routh_hurwitz(@num.Polynomial) -> Result[RouthArray, String]
 
@@ -54,6 +66,33 @@ pub fn RouthArray::not_equal(Self, Self) -> Bool
 pub fn RouthArray::output(Self, &Logger) -> Unit
 pub fn RouthArray::to_string(Self) -> String
 pub impl Show for RouthArray
+
+pub(all) struct StabilityMargins {
+  gain_margin_db : Double
+  phase_margin_deg : Double
+  gain_crossover_freq : Double
+  phase_crossover_freq : Double
+  sensitivity_peak : Double
+} derive(Eq)
+pub fn StabilityMargins::equal(Self, Self) -> Bool
+pub fn StabilityMargins::not_equal(Self, Self) -> Bool
+pub fn StabilityMargins::output(Self, &Logger) -> Unit
+pub fn StabilityMargins::to_string(Self) -> String
+pub impl Show for StabilityMargins
+
+pub(all) struct StateSpaceAnalysis {
+  order : Int32
+  controllability_rank : Int32
+  observability_rank : Int32
+  is_controllable : Bool
+  is_observable : Bool
+  is_minimal : Bool
+} derive(Eq)
+pub fn StateSpaceAnalysis::equal(Self, Self) -> Bool
+pub fn StateSpaceAnalysis::not_equal(Self, Self) -> Bool
+pub fn StateSpaceAnalysis::output(Self, &Logger) -> Unit
+pub fn StateSpaceAnalysis::to_string(Self) -> String
+pub impl Show for StateSpaceAnalysis
 
 // Type aliases
 

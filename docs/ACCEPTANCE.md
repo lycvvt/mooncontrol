@@ -14,8 +14,8 @@
 | :--- | :--- | :--- | :---: |
 | **语言纯度** | 100% 纯 MoonBit 实现，无第三方闭源库，无 C/JS FFI 依赖 | 所有核心模块（复数、多项式、传递函数、解析解、PID、RK4 积分引擎）均为纯 MoonBit 原生代码编写 | **EXCELLENT** |
 | **代码规范** | 通过 `moon check` 静态分析与类型推导 | **0 语法错误，0 编译器警告** | **PASS** |
-| **测试完整性** | 具备全套自动化单元与集成测试 | **32 个全自动化测试全部 100% PASS**，覆盖复数、多项式、一阶/二阶解析解、性能指标、稳态误差、Routh 稳定性、PID 闭环仿真、RK4 四阶收敛阶验证、系统稳定域边界等全部验证组 | **PASS** |
-| **高精度与边界保证** | 仿真与解析解误差需对齐控制理论公式，明确误差控制依据与适用边界 | 严谨建立 RK4 截断误差 $\mathcal{O}(h^4)$ 理论与实测收敛矩阵（平均收敛阶 4.0191），在基准伺服对象与倒立摆对象上划定稳定步长上限 $h < 2.785 / \vert\lambda\vert$ 与刚度边界 | **EXCELLENT** |
+| **测试完整性** | 具备全套自动化单元与集成测试 | **35 个全自动化测试全部 100% PASS**，覆盖复数、多项式、一阶/二阶解析解、频域幅相裕度、状态空间能控能观秩与 Ackermann 极点配置、非线性饱和/反算抗饱和/纯滞后闭环仿真、Richardson 后验误差证书、自适应步长控制与采样闭环转移矩阵谱半径判据 | **PASS** |
+| **高精度与边界保证** | 仿真与解析解误差需对齐控制理论公式，消除固定步长区间与一维稳定界反例 | 建立无量纲误差界 $\mathcal{O}((|\lambda_{\max}|h)^4)$、步长折半 Richardson 后验误差证书、自适应步长控制器（`simulate_step_adaptive`），以及二维复射线稳定域二分求根与采样闭环转移矩阵谱半径充要判据 $\rho(\mathbf{\Phi}_{\text{CL}}(dt)) < 1$ | **EXCELLENT** |
 | **版本管理** | Git 规范提交次数 > 10 次，提交记录原子清晰 | 采用语义化 commit 消息（`chore:`, `feat:`, `docs:`），保留连续可追踪的演进过程 | **PASS** |
 | **持续集成** | 配置自动化 CI 工作流 | 配置 GitHub Actions (`.github/workflows/ci.yml`)，覆盖 `check` / `test` / `run` 全流程 | **PASS** |
 | **工程文档** | 完整的 README、推导文档与可复现示例 | 中英双语 README、250+ 行高精度公式推导笔记 `docs/formula_derivations.md`、3 个可运行的完整示例工程 | **PASS** |
@@ -40,9 +40,9 @@
    - 0 型、1 型系统在阶跃与斜坡输入下对应位置常数 $K_p$、速度常数 $K_v$ 的稳态误差与终值定理绝对一致。
 7. **Routh-Hurwitz 稳定性交叉验证** (`src/analysis/analysis_wbtest.mbt`):
    - Routh 阵列代数判据（支持首列 0 微扰与全零行辅助多项式求导）与特征极点实部 $\text{Re}(p) < 0$ 的判定结果 100% 吻合。
-8. **闭环时域 RK4 仿真与收敛性分析** (`src/sim/sim_wbtest.mbt`, `src/sim/convergence_wbtest.mbt`):
-   - 受控对象闭环跟踪时域仿真曲线与二阶标准系统解析解全轨迹对齐（$dt=0.0005$ 时误差达 $1.6 \times 10^{-14}$）。
-   - 步长变化实测收敛阶平均达 4.0191，严格符合 $\mathcal{O}(dt^4)$ 理论；提供系统稳定域步长上限 $h < 2.785 / |\lambda|$ 边界保障。详情参见 [docs/BENCHMARK_AND_BOUNDARIES.md](docs/BENCHMARK_AND_BOUNDARIES.md)。
+8. **闭环时域 RK4 仿真、后验误差证书与非线性/采样稳定性边界** (`src/sim/sim_wbtest.mbt`, `src/sim/convergence_wbtest.mbt`):
+   - 受控对象闭环跟踪时域仿真曲线与二阶标准系统解析解全轨迹对齐，无量纲步长收敛阶平均达 4.0191，并提供步长折半 Richardson 外推后验误差证书与自适应步长控制（`simulate_step_adaptive`）。
+   - 提供开环复平面二维射线稳定半径 `rk4_directional_stability_radius` 与采样数据 PID 闭环状态转移矩阵谱半径充要判据 `closed_loop_pid_spectral_radius`（$\rho(\mathbf{\Phi}_{\text{CL}}(dt)) < 1$），并实现执行器饱和、反算抗饱和（Back-Calculation Anti-Windup）、纯滞后延迟 $e^{-\tau_d s}$、状态空间能控/能观秩与 Ackermann 极点配置、频域定量幅相裕度求解。详情参见 [docs/BENCHMARK_AND_BOUNDARIES.md](docs/BENCHMARK_AND_BOUNDARIES.md)。
 
 ---
 
@@ -54,7 +54,7 @@
 # 1. 静态检查
 moon check
 
-# 2. 执行全量 32 项单元与集成测试
+# 2. 执行全量 35 项单元与集成测试
 moon test
 
 # 3. 运行主程序 CLI 演示

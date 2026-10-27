@@ -164,29 +164,29 @@ $$x_{k+1} = x_k + \frac{dt}{6}(k_1 + 2 k_2 + 2 k_3 + k_4)$$
 
 ---
 
-## 七、数值积分精度理论、收敛阶实测与稳定域刚度边界
+## 七、无量纲数值误差界、Richardson 后验误差证书与闭环采样稳定判据
 
-### 1. 局部与全局截断误差推导
-四阶龙格-库塔算法单步局部截断误差（Local Truncation Error）通过泰勒展开与精确解对比确定为：
-$$\tau_n = \frac{h^5}{120} \psi(x_n) + \mathcal{O}(h^6) = \mathcal{O}(h^5)$$
-在区间 $[0, T]$ 经过 $N = T/h$ 步推进后，整体全局截断误差（Global Truncation Error）为：
-$$E(T) = \sum_{k=1}^N \tau_k \sim N \cdot \mathcal{O}(h^5) = \frac{T}{h} \mathcal{O}(h^5) = \mathcal{O}(h^4)$$
+### 1. 无量纲局部与全局截断误差推导
+对于可对角化稳定 LTI 系统 $y(t) = y(\infty) + \sum_{i=1}^n c_i e^{\lambda_i t}$（其中 $c_i = \text{Res}_{s=\lambda_i}(G(s)/s)$），四阶龙格-库塔算法单步放大因子 $R(z) = 1 + z + \frac{z^2}{2} + \frac{z^3}{6} + \frac{z^4}{24}$ 满足 $R(\lambda_i h) = e^{\lambda_i h} - \frac{(\lambda_i h)^5}{120} + \mathcal{O}(|\lambda_i h|^6)$。
+全局截断误差取决于**无量纲步长** $\eta = |\lambda_{\max}| h$ 与**模态留数模之和** $\sum |c_i|$，而非单纯有量纲秒数 $h$：
+$$|y_{\text{RK4}}(t_k) - y_{\text{exact}}(t_k)| \le \sum_{i=1}^n |c_i| \cdot \left|e^{\lambda_i t_k} - R(\lambda_i h)^k\right| \lesssim \frac{1}{120 e} \left(\sum_{i=1}^n \frac{|c_i|}{\zeta_i}\right) (|\lambda_{\max}| h)^4$$
 
-### 2. 步长变化与实测收敛阶验证
-对于两组步长 $h_1, h_2$，其全局误差比值满足：
-$$\frac{E(h_1)}{E(h_2)} \approx \left(\frac{h_1}{h_2}\right)^p \implies p = \frac{\ln(E(h_1) / E(h_2))}{\ln(h_1 / h_2)}$$
-在基准受控对象 $G(s) = \frac{10}{s^2 + 2s + 10}$ 上实测步长敏感度：
-- $dt = 0.0800$: $E_{max} = 4.3924 \times 10^{-5}$
-- $dt = 0.0400$: $E_{max} = 2.6705 \times 10^{-6} \implies p = 4.04$
-- $dt = 0.0200$: $E_{max} = 1.6451 \times 10^{-7} \implies p = 4.02$
-- $dt = 0.0100$: $E_{max} = 1.0208 \times 10^{-8} \implies p = 4.01$
-- $dt = 0.0050$: $E_{max} = 6.3566 \times 10^{-10} \implies p = 4.01$
-实测平均收敛阶达 **$4.0191$**，完全符合四阶收敛理论。
+### 2. 步长折半 Richardson 外推后验误差证书与自适应步长控制
+为消除未知模型下对步长误差的主观猜测，`simulate_step_certified` 同步运行步长 $h$ 与半步长 $h/2$，利用渐近展开 $y^{(h)}(t_k) = y(t_k) - C(t_k) h^4 + \mathcal{O}(h^5)$ 给出严格的后验误差证书（A Posteriori Error Certificate）：
+$$\hat{E}_{\text{coarse}}(t_k) = \frac{16}{15} \left|y^{(h/2)}(t_k) - y^{(h)}(t_k)\right|, \qquad \hat{E}_{\text{fine}}(t_k) = \frac{1}{15} \left|y^{(h/2)}(t_k) - y^{(h)}(t_k)\right|$$
+在基准受控对象 $G(s) = \frac{10}{s^2 + 2s + 10}$ 上实测步长敏感度与 Richardson 证书对比：
+- $dt = 0.0800\text{s} \; (\eta = 0.2530)$: $E_{\max} = 4.3924 \times 10^{-5}$, $\hat{E}_{\max} = 4.4026 \times 10^{-5}$
+- $dt = 0.0400\text{s} \; (\eta = 0.1265)$: $E_{\max} = 2.6705 \times 10^{-6}$, $\hat{E}_{\max} = 2.6732 \times 10^{-6} \implies p = 4.04$
+- $dt = 0.0200\text{s} \; (\eta = 0.0632)$: $E_{\max} = 1.6451 \times 10^{-7}$, $\hat{E}_{\max} = 1.6459 \times 10^{-7} \implies p = 4.02$
+- $dt = 0.0100\text{s} \; (\eta = 0.0316)$: $E_{\max} = 1.0208 \times 10^{-8}$, $\hat{E}_{\max} = 1.0210 \times 10^{-8} \implies p = 4.01$
+- $dt = 0.0050\text{s} \; (\eta = 0.0158)$: $E_{\max} = 6.3566 \times 10^{-10}$, $\hat{E}_{\max} = 6.3574 \times 10^{-10} \implies p = 4.01$
+实测平均收敛阶达 **$4.0191$**，且自适应求解器 `simulate_step_adaptive` 通过局部误差 PI 控制律动态调节 $h_k$，确保任意时间尺度与增益模型满足 $(\text{atol}, \text{rtol})$ 容差。
 
-### 3. RK4 绝对稳定域与步长上限
-令试验方程为 $\dot{x} = \lambda x$，设 $z = \lambda h$。RK4 的数值放大因子为：
-$$R(z) = 1 + z + \frac{z^2}{2} + \frac{z^3}{6} + \frac{z^4}{24}$$
-数值积分保持稳定的充要条件为 $|R(z)| \le 1$。
-在负实轴上，绝对稳定边界为 $z \in (-2.7853, 0)$。因此保证数值仿真的最大稳定步长约束为：
-$$h_{max} = \frac{2.7853}{\max_i |\lambda_i|}$$
-系统内置刚度分析器扫描极点并自动校验该约束，确保步长设置严格落在稳定域内。
+### 3. 开环复平面方向稳定域与闭环采样数据转移矩阵谱半径判据
+1. **开环 LTI 二维复射线方向稳定上限**：
+   仅当全体极点严格满足 Hurwitz 条件 $\text{Re}(\lambda_i) < 0$ 时开环系统存在正稳定步长（若存在 $\text{Re}(\lambda_i) \ge 0$，则 $h_{\max,\text{open}} = 0$）。对每个左半平面极点 $\lambda_i = |\lambda_i| e^{j\theta_i}$，沿射线 $z = r e^{j\theta_i}$ 二分求解 $|R(r e^{j\theta_i})| = 1$ 得到方向稳定半径 $r_{\text{crit}}(\theta_i)$，从而开环稳定步长上限为：
+   $$h_{\max,\text{open}} = \min_{1 \le i \le n} \frac{r_{\text{crit}}(\arg \lambda_i)}{|\lambda_i|}$$
+2. **采样数据数字 PID 闭环转移矩阵谱半径充要判据**：
+   在离散采样 PID + 零阶保持器（ZOH）闭环仿真中，对增广状态 $\mathbf{z}_k = [\mathbf{x}_k^T, I_{k-1}, e_{k-1}]^T \in \mathbb{R}^{n+2}$ 构造精确单步转移矩阵 $\mathbf{\Phi}_{\text{CL}}(h)$，由 Gelfand 公式求取谱半径：
+   $$\rho\left(\mathbf{\Phi}_{\text{CL}}(h)\right) = \lim_{K \to \infty} \left\|\mathbf{\Phi}_{\text{CL}}(h)^{2^K}\right\|_\infty^{2^{-K}} < 1.0$$
+   该充要条件严格消除了仅用开环极点判断闭环采样稳定性的数学反例（包括大采样周期 ZOH 失稳与未滤波高微分增益 $c b K_d > 1$ 代数环失稳）。

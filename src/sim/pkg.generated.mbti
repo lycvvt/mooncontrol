@@ -10,21 +10,67 @@ import {
 // Values
 pub fn check_system_boundaries(@tf.TransferFunction) -> SystemStabilityBound
 
+pub fn closed_loop_pid_spectral_radius(@tf.TransferFunction, Double, Double, Double, Double) -> Result[Double, String]
+
 pub fn error_against_first_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
 
 pub fn error_against_second_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
 
 pub fn evaluate_rk4_convergence(@tf.TransferFunction, Double, Array[Double], (Double) -> Double) -> Result[ConvergenceStudy, String]
 
+pub fn measure_trajectory_metrics(SimulationResult, setpoint? : Double) -> TrajectoryMetrics
+
 pub fn rk4_amplification_factor(@num.Complex, Double) -> Double
+
+pub fn rk4_directional_stability_radius(@num.Complex) -> Double
+
+pub fn rk4_pole_max_stable_dt(@num.Complex) -> Double
+
+pub fn simulate_closed_loop_nonlinear(@tf.TransferFunction, Double, Double, Double, Double, setpoint? : Double, dt? : Double, substeps? : Int32, u_min? : Double, u_max? : Double, max_slew_rate? : Double, anti_windup_kb? : Double, transport_delay? : Double, disturbance_time? : Double, disturbance_magnitude? : Double) -> Result[SimulationResult, String]
 
 pub fn simulate_closed_loop_pid(@tf.TransferFunction, @pid.PIDController, Double, setpoint? : Double, dt? : Double) -> Result[SimulationResult, String]
 
 pub fn simulate_step(@tf.TransferFunction, Double, dt? : Double) -> Result[SimulationResult, String]
 
+pub fn simulate_step_adaptive(@tf.TransferFunction, Double, atol? : Double, rtol? : Double, dt_init? : Double, dt_min? : Double, dt_max? : Double) -> Result[AdaptiveSimulationResult, String]
+
+pub fn simulate_step_certified(@tf.TransferFunction, Double, dt? : Double) -> Result[CertifiedSimulationResult, String]
+
+pub fn verify_rk4_step_stability(@tf.TransferFunction, Double) -> Bool
+
 // Errors
 
 // Types and methods
+pub(all) struct AdaptiveSimulationResult {
+  times : Array[Double]
+  outputs : Array[Double]
+  step_sizes : Array[Double]
+  accepted_steps : Int32
+  rejected_steps : Int32
+  max_estimated_local_error : Double
+} derive(Eq)
+pub fn AdaptiveSimulationResult::equal(Self, Self) -> Bool
+pub fn AdaptiveSimulationResult::not_equal(Self, Self) -> Bool
+pub fn AdaptiveSimulationResult::output(Self, &Logger) -> Unit
+pub fn AdaptiveSimulationResult::to_string(Self) -> String
+pub impl Show for AdaptiveSimulationResult
+
+pub(all) struct CertifiedSimulationResult {
+  times : Array[Double]
+  coarse_outputs : Array[Double]
+  fine_outputs : Array[Double]
+  extrapolated_outputs : Array[Double]
+  error_certificate_max : Double
+  error_certificate_rms : Double
+  dimensionless_step : Double
+  is_within_stability_region : Bool
+} derive(Eq)
+pub fn CertifiedSimulationResult::equal(Self, Self) -> Bool
+pub fn CertifiedSimulationResult::not_equal(Self, Self) -> Bool
+pub fn CertifiedSimulationResult::output(Self, &Logger) -> Unit
+pub fn CertifiedSimulationResult::to_string(Self) -> String
+pub impl Show for CertifiedSimulationResult
+
 pub(all) struct ConvergenceStudy {
   records : Array[StepConvergenceRecord]
   mean_order : Double
@@ -50,8 +96,10 @@ pub impl Show for SimulationResult
 
 pub(all) struct StepConvergenceRecord {
   dt : Double
+  dimensionless_step : Double
   max_error : Double
   rms_error : Double
+  richardson_error_est : Double
   order_estimate : Double
 } derive(Eq)
 pub fn StepConvergenceRecord::equal(Self, Self) -> Bool
@@ -64,6 +112,7 @@ pub(all) struct SystemStabilityBound {
   max_pole_magnitude : Double
   min_pole_magnitude : Double
   stiffness_ratio : Double
+  min_directional_radius : Double
   max_stable_dt : Double
   recommended_dt : Double
   is_stiff : Bool
@@ -74,6 +123,24 @@ pub fn SystemStabilityBound::not_equal(Self, Self) -> Bool
 pub fn SystemStabilityBound::output(Self, &Logger) -> Unit
 pub fn SystemStabilityBound::to_string(Self) -> String
 pub impl Show for SystemStabilityBound
+
+pub(all) struct TrajectoryMetrics {
+  overshoot_percent : Double
+  peak_value : Double
+  peak_time : Double
+  rise_time_10_90 : Double
+  settling_time_2pct : Double
+  steady_state_error : Double
+  iae : Double
+  ise : Double
+  itae : Double
+  control_effort_l2 : Double
+} derive(Eq)
+pub fn TrajectoryMetrics::equal(Self, Self) -> Bool
+pub fn TrajectoryMetrics::not_equal(Self, Self) -> Bool
+pub fn TrajectoryMetrics::output(Self, &Logger) -> Unit
+pub fn TrajectoryMetrics::to_string(Self) -> String
+pub impl Show for TrajectoryMetrics
 
 // Type aliases
 

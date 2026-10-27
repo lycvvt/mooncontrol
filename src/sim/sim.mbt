@@ -281,6 +281,261 @@ pub fn error_against_second_order_analytic(
 }
 
 ///|
+/// Quantitative time-domain performance metrics and integral error indices measured directly
+/// from a simulated trajectory (supports both linear and nonlinear saturated/delayed loops).
+pub(all) struct TrajectoryMetrics {
+  overshoot_percent : Double
+  peak_value : Double
+  peak_time : Double
+  rise_time_10_90 : Double
+  settling_time_2pct : Double
+  steady_state_error : Double
+  iae : Double
+  ise : Double
+  itae : Double
+  control_effort_l2 : Double
+} derive(Eq)
+
+pub extend TrajectoryMetrics with Eq::{equal, not_equal}
+pub extend TrajectoryMetrics with Show::{output}
+
+///|
+/// Measure engineering performance metrics and integral indices (IAE, ISE, ITAE) directly
+/// from any simulated time-domain trajectory.
+pub fn measure_trajectory_metrics(
+  sim : SimulationResult,
+  setpoint~ : Double = 1.0
+) -> TrajectoryMetrics {
+  let n = sim.times.length()
+  if n == 0 {
+    return {
+      overshoot_percent: 0.0,
+      peak_value: 0.0,
+      peak_time: 0.0,
+      rise_time_10_90: 0.0,
+      settling_time_2pct: 0.0,
+      steady_state_error: 0.0,
+      iae: 0.0,
+      ise: 0.0,
+      itae: 0.0,
+      control_effort_l2: 0.0,
+    }
+  }
+
+  let mut peak_val = sim.outputs[0]
+  let mut peak_t = sim.times[0]
+  let mut t10 = -1.0
+  let mut t90 = -1.0
+  let target_10 = 0.1 * setpoint
+  let target_90 = 0.9 * setpoint
+  let band = 0.02 * (if setpoint.abs() > 1.0e-9 { setpoint.abs() } else { 1.0 })
+  let mut last_outside_t = 0.0
+
+  let mut iae = 0.0
+  let mut ise = 0.0
+  let mut itae = 0.0
+  let mut u_l2 = 0.0
+
+  for i = 0; i < n; i = i + 1 {
+    let t = sim.times[i]
+    let y = sim.outputs[i]
+    let u = sim.inputs[i]
+    let err = setpoint - y
+    let abs_err = err.abs()
+
+    if y > peak_val {
+      peak_val = y
+      peak_t = t
+    }
+    if t10 < 0.0 && y >= target_10 {
+      t10 = t
+    }
+    if t90 < 0.0 && y >= target_90 {
+      t90 = t
+    }
+    if abs_err > band {
+      last_outside_t = t
+    }
+
+    if i > 0 {
+      let dt = t - sim.times[i - 1]
+      iae = iae + abs_err * dt
+      ise = ise + err * err * dt
+      itae = itae + t * abs_err * dt
+      u_l2 = u_l2 + u * u * dt
+    }
+  }
+
+  let overshoot_pct = if setpoint.abs() > 1.0e-9 && peak_val > setpoint {
+    (peak_val - setpoint) / setpoint.abs() * 100.0
+  } else {
+    0.0
+  }
+  let rise_t = if t10 >= 0.0 && t90 >= t10 { t90 - t10 } else { 0.0 }
+  let final_err = (setpoint - sim.outputs[n - 1]).abs()
+
+  {
+    overshoot_percent: overshoot_pct,
+    peak_value: peak_val,
+    peak_time: peak_t,
+    rise_time_10_90: rise_t,
+    settling_time_2pct: last_outside_t,
+    steady_state_error: final_err,
+    iae,
+    ise,
+    itae,
+    control_effort_l2: u_l2,
+  }
+}
+
+///|
+/// Simulate a hybrid nonlinear closed-loop control system with:
+/// - Continuous-time plant ODE integrated via multi-rate substeps (Zero-Order Hold)
+/// - Actuator saturation [u_min, u_max] and slew-rate limit |du/dt| <= max_slew_rate
+/// - Back-calculation anti-windup (tracking gain kb) and clamping
+/// - Pure transport dead-time delay exp(-transport_delay * s) via exact FIFO ring buffer
+/// - External load disturbance injection d(t) at t >= disturbance_time
+///
+/// Note: None of these nonlinear/hybrid/delayed phenomena can be simulated by symbolic
+/// Laplace partial-fraction expansion packages such as CAIMEOX/symbit/symphysics/control.
+pub fn simulate_closed_loop_nonlinear(
+  plant : @tf.TransferFunction,
+  kp : Double,
+  ki : Double,
+  kd : Double,
+  duration : Double,
+  setpoint~ : Double = 1.0,
+  dt~ : Double = 0.005,
+  substeps~ : Int = 4,
+  u_min? : Double,
+  u_max? : Double,
+  max_slew_rate? : Double,
+  anti_windup_kb~ : Double = 0.0,
+  transport_delay~ : Double = 0.0,
+  disturbance_time~ : Double = -1.0,
+  disturbance_magnitude~ : Double = 0.0
+) -> Result[SimulationResult, String] {
+  if duration <= 0.0 || dt <= 0.0 {
+    return Err("Duration and time step dt must be strictly positive")
+  }
+  let model = match StateSpaceModel::from_tf(plant) {
+    Ok(m) => m
+    Err(e) => return Err(e)
+  }
+
+  let m_sub = if substeps > 1 { substeps } else { 1 }
+  let dt_sub = dt / m_sub.to_double()
+  let num_steps = (duration / dt).to_int() + 1
+
+  // Delay buffer in controller sample steps
+  let delay_steps = if transport_delay > 0.0 {
+    (transport_delay / dt + 0.5).to_int()
+  } else {
+    0
+  }
+  let delay_buf = Array::make(delay_steps + 1, 0.0)
+  let mut delay_idx = 0
+
+  let times = Array(capacity=num_steps)
+  let outputs = Array(capacity=num_steps)
+  let inputs = Array(capacity=num_steps)
+
+  let mut state = Array::make(model.order, 0.0)
+  let mut integral = 0.0
+  let mut prev_err = 0.0
+  let mut prev_u = 0.0
+  let mut initialized = false
+
+  for step = 0; step < num_steps; step = step + 1 {
+    let t = step.to_double() * dt
+    let y = model.compute_output(state, 0.0)
+    let err = setpoint - y
+
+    let deriv = if initialized {
+      (err - prev_err) / dt
+    } else {
+      initialized = true
+      0.0
+    }
+    prev_err = err
+
+    // Unconstrained PID output before saturation
+    let u_raw = kp * err + ki * integral + kd * deriv
+    let mut u_cmd = u_raw
+
+    // Apply actuator amplitude saturation
+    match u_min {
+      Some(lo) => if u_cmd < lo { u_cmd = lo }
+      None => ()
+    }
+    match u_max {
+      Some(hi) => if u_cmd > hi { u_cmd = hi }
+      None => ()
+    }
+
+    // Apply actuator slew-rate limit |u_cmd - prev_u| <= max_slew_rate * dt
+    match max_slew_rate {
+      Some(rate) => if step > 0 {
+        let max_du = rate.abs() * dt
+        if u_cmd - prev_u > max_du {
+          u_cmd = prev_u + max_du
+        } else if prev_u - u_cmd > max_du {
+          u_cmd = prev_u - max_du
+        }
+      }
+      None => ()
+    }
+    prev_u = u_cmd
+
+    // Update integrator with back-calculation anti-windup:
+    // dI/dt = err + (kb / ki) * (u_cmd - u_raw) when ki != 0
+    if ki.abs() > 1.0e-12 {
+      let aw_correction = anti_windup_kb * (u_cmd - u_raw) / ki
+      integral = integral + (err + aw_correction) * dt
+    }
+
+    // Transport delay FIFO queue
+    let u_delayed = if delay_steps > 0 {
+      let out_u = delay_buf[delay_idx]
+      delay_buf[delay_idx] = u_cmd
+      delay_idx = (delay_idx + 1) % delay_steps
+      out_u
+    } else {
+      u_cmd
+    }
+
+    // External load disturbance injection
+    let d_val = if disturbance_time >= 0.0 && t >= disturbance_time {
+      disturbance_magnitude
+    } else {
+      0.0
+    }
+    let u_plant = u_delayed + d_val
+
+    times.push(t)
+    outputs.push(y)
+    inputs.push(u_cmd)
+
+    // Multi-rate continuous plant integration under Zero-Order Hold (ZOH)
+    for sub = 0; sub < m_sub; sub = sub + 1 {
+      state = rk4_step(model, state, u_plant, dt_sub)
+    }
+  }
+
+  Ok({ times, outputs, inputs })
+}
+
+///|
+pub fn TrajectoryMetrics::to_string(self : TrajectoryMetrics) -> String {
+  "TrajectoryMetrics(Mp: \{self.overshoot_percent}%, tp: \{self.peak_time}s, tr: \{self.rise_time_10_90}s, ts: \{self.settling_time_2pct}s, e_ss: \{self.steady_state_error}, IAE: \{self.iae}, ISE: \{self.ise}, ITAE: \{self.itae})"
+}
+
+///|
+pub impl Show for TrajectoryMetrics with output(self, logger) {
+  logger.write_string(self.to_string())
+}
+
+///|
 pub fn SimulationResult::to_string(self : SimulationResult) -> String {
   let len = self.times.length()
   if len == 0 {

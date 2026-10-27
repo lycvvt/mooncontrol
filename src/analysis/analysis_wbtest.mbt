@@ -136,3 +136,42 @@ test "Test 7: Routh-Hurwitz stability criterion agrees with pole real-part crite
   assert_true(is_stable_by_poles(tf4))
   assert_eq(rh4.is_stable, is_stable_by_poles(tf4))
 }
+
+test "Quantitative frequency-domain stability margins (GM, PM, omega_gc, omega_pc, M_s)" {
+  // L(s) = 2 / (s + 1)^3 = 2 / (s^3 + 3s^2 + 3s + 1)
+  // Theoretical phase crossover (-180 deg): 3 * arctan(w_pc) = pi => w_pc = sqrt(3) ≈ 1.7320508
+  // |L(j*sqrt(3))| = 2 / (sqrt(1 + 3))^3 = 2 / 8 = 0.25 => GM = -20*log10(0.25) ≈ 12.0411998 dB
+  // Theoretical gain crossover (|L(j*w_gc)| = 1): (1 + w_gc^2)^(3/2) = 2 => w_gc = sqrt(2^(2/3) - 1) ≈ 0.7664
+  let l_tf = @tf.TransferFunction::from_coeffs([2.0], [1.0, 3.0, 3.0, 1.0]).unwrap()
+  let margins = compute_stability_margins(l_tf)
+
+  assert_true((margins.phase_crossover_freq - (3.0 : Double).sqrt()).abs() < 1.0e-3)
+  assert_true((margins.gain_margin_db - 12.0411998).abs() < 1.0e-2)
+  assert_true((margins.gain_crossover_freq - 0.76642).abs() < 1.0e-3)
+  assert_true(margins.phase_margin_deg > 67.0 && margins.phase_margin_deg < 68.0)
+  assert_true(margins.sensitivity_peak > 1.0 && margins.sensitivity_peak < 2.0)
+}
+
+test "State-space Kalman controllability/observability rank and Ackermann pole placement" {
+  // 1. Minimal 2nd-order unstable inverted pendulum: G(s) = 1 / (s^2 - 9.8)
+  let pend = @tf.TransferFunction::from_coeffs([1.0], [1.0, 0.0, -9.8]).unwrap()
+  let (a, b, _c, ss_info) = analyze_transfer_function_state_space(pend).unwrap()
+  assert_true(ss_info.is_controllable)
+  assert_true(ss_info.is_observable)
+  assert_true(ss_info.is_minimal)
+
+  // Place closed-loop poles at s = -4 +- 4i -> desired char poly: s^2 + 8s + 32
+  let desired = @num.Polynomial::new([1.0, 8.0, 32.0])
+  let k_gains = ackermann_pole_placement(a, b, desired).unwrap()
+  // Since open-loop den is s^2 + 0*s - 9.8, k_0 = 32 - (-9.8) = 41.8, k_1 = 8 - 0 = 8.0
+  assert_true((k_gains[0] - 41.8).abs() < 1.0e-9)
+  assert_true((k_gains[1] - 8.0).abs() < 1.0e-9)
+
+  // 2. Non-minimal system with pole-zero cancellation: G(s) = (s + 2) / ((s + 2)(s + 3)) = (s + 2) / (s^2 + 5s + 6)
+  let non_min = @tf.TransferFunction::from_coeffs([1.0, 2.0], [1.0, 5.0, 6.0]).unwrap()
+  let (_a2, _b2, _c2, ss_non_min) = analyze_transfer_function_state_space(non_min).unwrap()
+  assert_true(ss_non_min.is_controllable)
+  assert_false(ss_non_min.is_observable)
+  assert_false(ss_non_min.is_minimal)
+  assert_eq(ss_non_min.observability_rank, 1)
+}
