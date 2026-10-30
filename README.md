@@ -30,8 +30,8 @@ MoonControl 是参考 Python [`python-control`](https://python-control.readthedo
 
 ### 可信的数值精度与稳定性适用边界
 本库参考 `scipy.integrate.solve_ivp` 与 `python-control` 规范，明确划分确定性计算与渐近启发式估计的适用边界：
-- **确定性解析解与矩阵指数边界（低阶理想 LTI 系统，$n \le 6$）**：一阶/二阶标准系统闭式解直接由初等超越函数求值（双精度浮点误差 $< 10^{-12}$）；线性状态空间提供缩放平方 12 阶泰勒矩阵指数 `matrix_exponential`（缩放后 $\|\mathbf{A}dt/2^s\|_\infty \le 0.5$，级数截断余项 $< 2 \times 10^{-14}$）。
-- **ODE 步长折半渐近误差估计边界（对标 `solve_ivp`）**：`simulate_step_certified` 与自适应 `simulate_step_adaptive` 采用的 $\frac{16}{15}|y^{(h/2)} - y^{(h)}|$ 属于**渐近后验局部误差指示器（Asymptotic Error Indicator）**，仅在无量纲步长处于渐近区（$\eta = |\lambda_{\max}|h \le 0.2$）且右端函数局部光滑（$C^5$，不含饱和折点或跳变）时有效，用于工程自适应步长缩放，**不构成无条件的全局区间误差上界**。显式 RK4/RK45 仅适用于**非刚性系统（刚度比 $S \le 100$）**。
+- **解析解与矩阵指数适用边界（低阶理想 LTI 系统，$n \le 6$）**：一阶/二阶标准系统闭式解直接由初等超越函数求值，在非奇异参数下（$|\zeta - 1| > 10^{-5}$ 或 $\zeta = 1$）双精度绝对误差 $< 10^{-12} \cdot \max(1, |K|)$；线性状态空间 ZOH 仿真（`simulate_step_zoh_expm`）在低阶良态矩阵（$n \le 6, \|\mathbf{A}dt\|_\infty \le 10$）下采用缩放平方 12 阶泰勒矩阵指数 `matrix_exponential`（缩放后 $\|\mathbf{A}dt/2^s\|_\infty \le 0.5$，缩放步级数截断余项 $< 2 \times 10^{-14}$）。
+- **ODE 步长折半渐近误差估计边界（对标 `solve_ivp`）**：`simulate_step_richardson` 与自适应 `simulate_step_adaptive` 采用的 $\frac{16}{15}|y^{(h/2)} - y^{(h)}|$ 属于**渐近后验局部误差指示器（Asymptotic Error Indicator）**，仅在无量纲步长处于渐近区（$\eta = |\lambda_{\max}|h \le 0.2$）且右端函数局部光滑（$C^5$，不含饱和折点或跳变）时有效，用于工程自适应步长缩放，**不构成无条件的全局区间误差上界**。显式 RK4/RK45 仅适用于**非刚性系统（刚度比 $S \le 100$）**。
 - **稳定性判据与求根的条件数边界**：多项式 Durand-Kerner 求根、Routh 表及基于 Faddeev-LeVerrier 迹递推的采样闭环特征多项式求根（`closed_loop_pid_spectral_radius`）受限于 Wilkinson 多项式条件数，**可信适用范围为低阶非病态系统（$n \le 6$，重根重数 $\le 2$）且特征根偏离虚轴/单位圆临界带（$|\text{Re}(s_i)| > 10^{-6}, ||z_i|-1| > 10^{-6}$）**；对临界稳定或高阶病态系统仅作数值参考，不作充要保证。
 
 ---

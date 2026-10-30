@@ -20,7 +20,7 @@ test "RK4 4th-order convergence on 2nd-order underdamped DC motor plant" {
   // Verify that empirical convergence order is close to 4.0 (between 3.9 and 4.1)
   assert_true(study.mean_order > 3.9 && study.mean_order < 4.1)
 
-  // Verify that a posteriori Richardson error certificate tracks actual error within 5%
+  // Verify that asymptotic Richardson error indicator tracks actual error within 5% in asymptotic regime
   let rec = study.records[2] // dt = 0.01
   let rel_diff = (rec.richardson_error_est - rec.max_error).abs() / rec.max_error
   assert_true(rel_diff < 0.05)
@@ -151,4 +151,12 @@ test "Scaling-and-squaring matrix exponential and Faddeev-LeVerrier characterist
   assert_true((poly.coeffs[0] - 1.0).abs() < 1.0e-12)
   assert_true((poly.coeffs[1] - 2.0).abs() < 1.0e-12)
   assert_true((poly.coeffs[2] - 10.0).abs() < 1.0e-12)
+
+  // ZOH matrix exponential simulation on Plant A at coarse dt = 0.05s has < 1e-13 error
+  let wn = (10.0 : Double).sqrt()
+  let zeta = 1.0 / wn
+  let tf_a = @tf.TransferFunction::from_coeffs([10.0], [1.0, 2.0, 10.0]).unwrap()
+  let zoh_sim = simulate_step_zoh_expm(tf_a, 2.0, dt=0.05).unwrap()
+  let zoh_err = error_against_second_order_analytic(wn, zeta, zoh_sim).unwrap()
+  assert_true(zoh_err < 1.0e-13)
 }

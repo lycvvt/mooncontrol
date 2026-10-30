@@ -101,6 +101,15 @@ test "Test 6: Steady-state error for Type 0 and Type 1 systems vs final value th
   // Ramp input: e_ss = 1 / Kv = 1 / 5 = 0.2
   let ess_ramp1 = steady_state_error(g_type1, Ramp).unwrap()
   assert_true((ess_ramp1 - 0.2).abs() < 1.0e-9)
+
+  // Unstable closed-loop system G(s) = 1 / (s - 2) -> 1 + G(s) has root at s = 1 > 0
+  // Final Value Theorem does not apply -> must return Err
+  let g_unstable = @tf.TransferFunction::from_coeffs([1.0], [1.0, -2.0]).unwrap()
+  let is_err = match steady_state_error(g_unstable, Step) {
+    Ok(_) => false
+    Err(_) => true
+  }
+  assert_true(is_err)
 }
 
 test "Test 7: Routh-Hurwitz stability criterion agrees with pole real-part criterion" {
@@ -135,6 +144,11 @@ test "Test 7: Routh-Hurwitz stability criterion agrees with pole real-part crite
   assert_true(rh4.is_stable)
   assert_true(is_stable_by_poles(tf4))
   assert_eq(rh4.is_stable, is_stable_by_poles(tf4))
+
+  // Case 4: Polynomial with root at origin s = 0 (s^2 + 2s + 0) must NOT be strictly Hurwitz stable
+  let p_zero_root = @num.Polynomial::new([1.0, 2.0, 0.0])
+  let rh_zero = routh_hurwitz(p_zero_root).unwrap()
+  assert_false(rh_zero.is_stable)
 }
 
 test "Quantitative frequency-domain stability margins (GM, PM, omega_gc, omega_pc, M_s)" {

@@ -38,7 +38,9 @@ pub fn simulate_step(@tf.TransferFunction, Double, dt? : Double) -> Result[Simul
 
 pub fn simulate_step_adaptive(@tf.TransferFunction, Double, atol? : Double, rtol? : Double, dt_init? : Double, dt_min? : Double, dt_max? : Double) -> Result[AdaptiveSimulationResult, String]
 
-pub fn simulate_step_certified(@tf.TransferFunction, Double, dt? : Double) -> Result[CertifiedSimulationResult, String]
+pub fn simulate_step_richardson(@tf.TransferFunction, Double, dt? : Double) -> Result[StepDoublingSimulationResult, String]
+
+pub fn simulate_step_zoh_expm(@tf.TransferFunction, Double, dt? : Double) -> Result[SimulationResult, String]
 
 pub fn verify_rk4_step_stability(@tf.TransferFunction, Double) -> Bool
 
@@ -58,22 +60,6 @@ pub fn AdaptiveSimulationResult::not_equal(Self, Self) -> Bool
 pub fn AdaptiveSimulationResult::output(Self, &Logger) -> Unit
 pub fn AdaptiveSimulationResult::to_string(Self) -> String
 pub impl Show for AdaptiveSimulationResult
-
-pub(all) struct CertifiedSimulationResult {
-  times : Array[Double]
-  coarse_outputs : Array[Double]
-  fine_outputs : Array[Double]
-  extrapolated_outputs : Array[Double]
-  error_certificate_max : Double
-  error_certificate_rms : Double
-  dimensionless_step : Double
-  is_within_stability_region : Bool
-} derive(Eq)
-pub fn CertifiedSimulationResult::equal(Self, Self) -> Bool
-pub fn CertifiedSimulationResult::not_equal(Self, Self) -> Bool
-pub fn CertifiedSimulationResult::output(Self, &Logger) -> Unit
-pub fn CertifiedSimulationResult::to_string(Self) -> String
-pub impl Show for CertifiedSimulationResult
 
 pub(all) struct ConvergenceStudy {
   records : Array[StepConvergenceRecord]
@@ -111,6 +97,22 @@ pub fn StepConvergenceRecord::not_equal(Self, Self) -> Bool
 pub fn StepConvergenceRecord::output(Self, &Logger) -> Unit
 pub fn StepConvergenceRecord::to_string(Self) -> String
 pub impl Show for StepConvergenceRecord
+
+pub(all) struct StepDoublingSimulationResult {
+  times : Array[Double]
+  coarse_outputs : Array[Double]
+  fine_outputs : Array[Double]
+  extrapolated_outputs : Array[Double]
+  estimated_error_max : Double
+  estimated_error_rms : Double
+  dimensionless_step : Double
+  is_within_stability_region : Bool
+} derive(Eq)
+pub fn StepDoublingSimulationResult::equal(Self, Self) -> Bool
+pub fn StepDoublingSimulationResult::not_equal(Self, Self) -> Bool
+pub fn StepDoublingSimulationResult::output(Self, &Logger) -> Unit
+pub fn StepDoublingSimulationResult::to_string(Self) -> String
+pub impl Show for StepDoublingSimulationResult
 
 pub(all) struct SystemStabilityBound {
   max_pole_magnitude : Double

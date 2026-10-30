@@ -227,11 +227,70 @@ pub fn matrix_exponential(a : @num.Matrix, dt : Double) -> @num.Matrix {
     result = result + term
   }
 
-  // Repeated squaring: exp(A * dt) = (exp(A * dt / 2^s))^(2^s)
+  //Repeated squaring: exp(A * dt) = (exp(A * dt / 2^s))^(2^s)
   for step = 0; step < s; step = step + 1 {
     result = result * result
   }
   result
+}
+
+///|
+/// Simulate open-loop unit step response using exact Zero-Order Hold (ZOH) discretization
+/// via the block matrix exponential (aligned with `scipy.signal.cont2discrete(..., method='zoh')`):
+///   exp([A*dt, B*dt; 0, 0]) = [A_d, B_d; 0, 1]
+///   x_{k+1} = A_d * x_k + B_d * u_k
+/// For linear time-invariant systems of low order (n <= 6), this eliminates ODE time-stepping
+/// truncation error regardless of step size dt.
+pub fn simulate_step_zoh_expm(
+  tf : @tf.TransferFunction,
+  duration : Double,
+  dt~ : Double = 0.02
+) -> Result[SimulationResult, String] {
+  if duration <= 0.0 || dt <= 0.0 {
+    return Err("Duration and time step dt must be strictly positive")
+  }
+  let model = match StateSpaceModel::from_tf(tf) {
+    Ok(m) => m
+    Err(e) => return Err(e)
+  }
+  let n = model.order
+  // Construct (n+1) x (n+1) block matrix M = [A, B; 0, 0]
+  let aug = @num.Matrix::zeros(n + 1, n + 1)
+  for i = 0; i < n - 1; i = i + 1 {
+    aug.set(i, i + 1, 1.0)
+  }
+  for j = 0; j < n; j = j + 1 {
+    aug.set(n - 1, j, -model.a_coeffs[j])
+  }
+  aug.set(n - 1, n, 1.0)
+
+  let exp_aug = matrix_exponential(aug, dt)
+  let num_steps = (duration / dt).to_int() + 1
+  let times = Array(capacity=num_steps)
+  let outputs = Array(capacity=num_steps)
+  let inputs = Array(capacity=num_steps)
+
+  let mut state = Array::make(n, 0.0)
+  let u = 1.0
+  for step = 0; step < num_steps; step = step + 1 {
+    let t = step.to_double() * dt
+    let y = model.compute_output(state, u)
+    times.push(t)
+    outputs.push(y)
+    inputs.push(u)
+
+    let next_state = Array::make(n, 0.0)
+    for r = 0; r < n; r = r + 1 {
+      let mut acc = exp_aug.get(r, n) * u
+      for c = 0; c < n; c = c + 1 {
+        acc = acc + exp_aug.get(r, c) * state[c]
+      }
+      next_state[r] = acc
+    }
+    state = next_state
+  }
+
+  Ok({ times, outputs, inputs })
 }
 
 ///|

@@ -164,29 +164,29 @@ $$x_{k+1} = x_k + \frac{dt}{6}(k_1 + 2 k_2 + 2 k_3 + k_4)$$
 
 ---
 
-## 七、无量纲数值误差界、Richardson 后验误差证书与闭环采样稳定判据
+## 七、无量纲数值误差界、步长折半渐近误差估计与闭环采样稳定分析
 
 ### 1. 无量纲局部与全局截断误差推导
 对于可对角化稳定 LTI 系统 $y(t) = y(\infty) + \sum_{i=1}^n c_i e^{\lambda_i t}$（其中 $c_i = \text{Res}_{s=\lambda_i}(G(s)/s)$），四阶龙格-库塔算法单步放大因子 $R(z) = 1 + z + \frac{z^2}{2} + \frac{z^3}{6} + \frac{z^4}{24}$ 满足 $R(\lambda_i h) = e^{\lambda_i h} - \frac{(\lambda_i h)^5}{120} + \mathcal{O}(|\lambda_i h|^6)$。
-全局截断误差取决于**无量纲步长** $\eta = |\lambda_{\max}| h$ 与**模态留数模之和** $\sum |c_i|$，而非单纯有量纲秒数 $h$：
+在渐近收敛区（$\eta = |\lambda_{\max}| h \le 0.2$）内，全局截断误差取决于**无量纲步长** $\eta = |\lambda_{\max}| h$ 与**模态留数模之和** $\sum |c_i|$，而非单纯有量纲秒数 $h$：
 $$|y_{\text{RK4}}(t_k) - y_{\text{exact}}(t_k)| \le \sum_{i=1}^n |c_i| \cdot \left|e^{\lambda_i t_k} - R(\lambda_i h)^k\right| \lesssim \frac{1}{120 e} \left(\sum_{i=1}^n \frac{|c_i|}{\zeta_i}\right) (|\lambda_{\max}| h)^4$$
 
-### 2. 步长折半 Richardson 外推后验误差证书与自适应步长控制
-为消除未知模型下对步长误差的主观猜测，`simulate_step_certified` 同步运行步长 $h$ 与半步长 $h/2$，利用渐近展开 $y^{(h)}(t_k) = y(t_k) - C(t_k) h^4 + \mathcal{O}(h^5)$ 给出严格的后验误差证书（A Posteriori Error Certificate）：
+### 2. 步长折半 Richardson 渐近误差指示器与自适应步长控制
+参考 `scipy.integrate.solve_ivp` 的渐近局部误差控制方法，`simulate_step_richardson` 同步运行步长 $h$ 与半步长 $h/2$，在渐近收敛区（$\eta \le 0.2$）且右端光滑的前提下，利用渐近展开 $y^{(h)}(t_k) = y(t_k) - C(t_k) h^4 + \mathcal{O}(h^5)$ 给出渐近后验误差估计（Asymptotic Error Indicator，用于工程步长缩放而非无条件区间上界）：
 $$\hat{E}_{\text{coarse}}(t_k) = \frac{16}{15} \left|y^{(h/2)}(t_k) - y^{(h)}(t_k)\right|, \qquad \hat{E}_{\text{fine}}(t_k) = \frac{1}{15} \left|y^{(h/2)}(t_k) - y^{(h)}(t_k)\right|$$
-在基准受控对象 $G(s) = \frac{10}{s^2 + 2s + 10}$ 上实测步长敏感度与 Richardson 证书对比：
+在基准受控对象 $G(s) = \frac{10}{s^2 + 2s + 10}$ 上实测步长敏感度与 Richardson 渐近估计对比：
 - $dt = 0.0800\text{s} \; (\eta = 0.2530)$: $E_{\max} = 4.3924 \times 10^{-5}$, $\hat{E}_{\max} = 4.4026 \times 10^{-5}$
 - $dt = 0.0400\text{s} \; (\eta = 0.1265)$: $E_{\max} = 2.6705 \times 10^{-6}$, $\hat{E}_{\max} = 2.6732 \times 10^{-6} \implies p = 4.04$
 - $dt = 0.0200\text{s} \; (\eta = 0.0632)$: $E_{\max} = 1.6451 \times 10^{-7}$, $\hat{E}_{\max} = 1.6459 \times 10^{-7} \implies p = 4.02$
 - $dt = 0.0100\text{s} \; (\eta = 0.0316)$: $E_{\max} = 1.0208 \times 10^{-8}$, $\hat{E}_{\max} = 1.0210 \times 10^{-8} \implies p = 4.01$
 - $dt = 0.0050\text{s} \; (\eta = 0.0158)$: $E_{\max} = 6.3566 \times 10^{-10}$, $\hat{E}_{\max} = 6.3574 \times 10^{-10} \implies p = 4.01$
-实测平均收敛阶达 **$4.0191$**，且自适应求解器 `simulate_step_adaptive` 通过局部误差 PI 控制律动态调节 $h_k$，确保任意时间尺度与增益模型满足 $(\text{atol}, \text{rtol})$ 容差。
+实测平均收敛阶达 **$4.0191$**，自适应求解器 `simulate_step_adaptive` 通过局部误差 PI 控制律动态调节 $h_k$，在非刚性光滑系统（$S \le 100$）上控制局部截断误差。
 
-### 3. 开环复平面方向稳定域与闭环采样数据转移矩阵谱半径判据
-1. **开环 LTI 二维复射线方向稳定上限**：
+### 3. 缩放平方矩阵指数、开环复射线稳定半径与采样闭环谱半径分析
+1. **缩放平方矩阵指数 (`matrix_exponential` & `simulate_step_zoh_expm`)**：
+   对低阶状态空间矩阵（$n \le 6$），选取缩放幂次 $2^s$ 使 $\|\mathbf{A} dt / 2^s\|_\infty \le 0.5$，采用 12 阶泰勒级数计算 $\exp(\mathbf{A} dt / 2^s)$ 后执行 $s$ 次平方还原，消除线性 ZOH 离散递推的常微分方程步进截断误差。
+2. **开环 LTI 二维复射线方向稳定上限**：
    仅当全体极点严格满足 Hurwitz 条件 $\text{Re}(\lambda_i) < 0$ 时开环系统存在正稳定步长（若存在 $\text{Re}(\lambda_i) \ge 0$，则 $h_{\max,\text{open}} = 0$）。对每个左半平面极点 $\lambda_i = |\lambda_i| e^{j\theta_i}$，沿射线 $z = r e^{j\theta_i}$ 二分求解 $|R(r e^{j\theta_i})| = 1$ 得到方向稳定半径 $r_{\text{crit}}(\theta_i)$，从而开环稳定步长上限为：
    $$h_{\max,\text{open}} = \min_{1 \le i \le n} \frac{r_{\text{crit}}(\arg \lambda_i)}{|\lambda_i|}$$
-2. **采样数据数字 PID 闭环转移矩阵谱半径充要判据**：
-   在离散采样 PID + 零阶保持器（ZOH）闭环仿真中，对增广状态 $\mathbf{z}_k = [\mathbf{x}_k^T, I_{k-1}, e_{k-1}]^T \in \mathbb{R}^{n+2}$ 构造精确单步转移矩阵 $\mathbf{\Phi}_{\text{CL}}(h)$，由 Gelfand 公式求取谱半径：
-   $$\rho\left(\mathbf{\Phi}_{\text{CL}}(h)\right) = \lim_{K \to \infty} \left\|\mathbf{\Phi}_{\text{CL}}(h)^{2^K}\right\|_\infty^{2^{-K}} < 1.0$$
-   该充要条件严格消除了仅用开环极点判断闭环采样稳定性的数学反例（包括大采样周期 ZOH 失稳与未滤波高微分增益 $c b K_d > 1$ 代数环失稳）。
+3. **采样数据数字 PID 闭环特征多项式谱半径分析**：
+   在离散采样 PID + 零阶保持器（ZOH）线性闭环中，对增广状态 $\mathbf{z}_k = [\mathbf{x}_k^T, I_{k-1}, e_{k-1}]^T \in \mathbb{R}^{n+2}$ 构造单步转移矩阵 $\mathbf{\Phi}_{\text{CL}}(h)$，通过 Faddeev-LeVerrier 递推提取特征多项式 $\det(z\mathbf{I} - \mathbf{\Phi}_{\text{CL}}(h))$ 并求解特征根模长最大值 $\rho(\mathbf{\Phi}_{\text{CL}}(h)) = \max_i |z_i|$。该分析适用于低阶良态系统（$n \le 6$，特征根偏离单位圆 $||z_i| - 1| > 10^{-6}$），可有效识别大采样周期 ZOH 延迟失稳与未滤波高微分增益失稳。

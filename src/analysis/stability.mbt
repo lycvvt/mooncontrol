@@ -49,13 +49,23 @@ pub fn routh_hurwitz(char_poly : @num.Polynomial) -> Result[RouthArray, String] 
     p = p + 2
   }
 
+  // Necessary condition for strict Hurwitz stability: all polynomial coefficients must be > 0
+  let mut all_coeffs_positive = true
+  for c_val in poly.coeffs {
+    if c_val <= 1.0e-12 {
+      all_coeffs_positive = false
+    }
+  }
+
   let mut had_all_zero_row = false
+  let mut had_zero_pivot = false
 
   // Compute remaining rows
   for i = 2; i < num_rows; i = i + 1 {
     // Check if previous row first element is near zero
     let prev_first = table[i - 1][0]
     if prev_first.abs() < 1.0e-9 {
+      had_zero_pivot = true
       // Check if entire previous row is zero
       let mut all_zero = true
       for j = 0; j < num_cols; j = j + 1 {
@@ -93,6 +103,10 @@ pub fn routh_hurwitz(char_poly : @num.Polynomial) -> Result[RouthArray, String] 
     }
   }
 
+  if table[num_rows - 1][0].abs() < 1.0e-9 {
+    had_zero_pivot = true
+  }
+
   // Count sign changes in first column
   let mut sign_changes = 0
   for i = 0; i < num_rows - 1; i = i + 1 {
@@ -103,7 +117,7 @@ pub fn routh_hurwitz(char_poly : @num.Polynomial) -> Result[RouthArray, String] 
     }
   }
 
-  let stable = sign_changes == 0 && !had_all_zero_row
+  let stable = sign_changes == 0 && !had_all_zero_row && !had_zero_pivot && all_coeffs_positive
   Ok({ rows: table, sign_changes, is_stable: stable })
 }
 

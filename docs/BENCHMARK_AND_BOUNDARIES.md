@@ -36,14 +36,14 @@
 
 参考 `scipy.integrate.solve_ivp`（Hairer-Nørsett-Wanner 规范）与 `python-control` 的数值分析边界，本库将各算法的精度与稳定性保证严格区分为**确定性解析/矩阵级数边界**与**渐近启发式工程估计边界**，不作超越数值方法数学本质的过度承诺：
 
-### 1. 确定性精度边界（仅限低阶理想 LTI 解析解与矩阵指数）
+### 1. 解析解与矩阵指数适用边界（仅限低阶良态 LTI 系统，$n \le 6$）
 - **一阶与二阶标准系统闭式解析解 (`step_response_first_order`, `step_response_second_order`)**：
-  - 直接由初等超越函数（$\exp, \sin, \cos, \sinh, \cosh$）闭式求值，不存在时间步进截断误差，在非奇异参数下（阻尼比 $|\zeta - 1| > 10^{-6}$ 或精确等于 $1$）精度受限于 IEEE-754 双精度浮点运算（实测误差 $< 10^{-12}$）。
-- **小规模状态空间矩阵指数 (`matrix_exponential`)**：
-  - 对标 `scipy.linalg.expm` 的缩放平方算法（Scaling and Squaring）：先选取 $2^s$ 将 $\|\mathbf{A} dt\|_\infty / 2^s$ 缩放至 $\le 0.5$，再采用 12 阶泰勒级数展开（局部级数截断余项 $\le \frac{0.5^{13}}{13!} < 2 \times 10^{-14}$），最后执行 $s$ 次平方还原。适用于低阶良态系统（$n \le 6$）的精确零阶保持（ZOH）线性离散步进。
+  - 直接由初等超越函数（$\exp, \sin, \cos$）闭式求值，不存在时间步进截断误差，在非奇异参数下（阻尼比 $|\zeta - 1| > 10^{-5}$ 或精确等于 $1$）精度受限于 IEEE-754 双精度浮点运算，绝对误差 $< 10^{-12} \cdot \max(1, |K|)$。
+- **小规模状态空间矩阵指数与 ZOH 离散递推 (`matrix_exponential`, `simulate_step_zoh_expm`)**：
+  - 对标 `scipy.linalg.expm` 与 `scipy.signal.cont2discrete(method='zoh')` 的缩放平方算法（Scaling and Squaring）：先选取 $2^s$ 将 $\|\mathbf{A} dt\|_\infty / 2^s$ 缩放至 $\le 0.5$，再采用 12 阶泰勒级数展开（缩放步级数截断余项 $\le \frac{0.5^{13}}{13!} < 2 \times 10^{-14}$），最后执行 $s$ 次平方还原。**可信适用边界为低阶良态矩阵（$n \le 6$）且单步范数 $\|\mathbf{A} dt\|_\infty \le 10$**（当非正规矩阵范数过大时，多次平方会放大浮点舍入误差）。
 
 ### 2. ODE 数值积分的渐近误差估计边界（对标 `scipy.integrate.solve_ivp`）
-对于含非线性饱和、速率限制或任意外部输入的常微分方程初值问题，本库提供定步长 RK4（`simulate_step`）与基于步长折半 Richardson 外推的自适应积分（`simulate_step_certified` / `simulate_step_adaptive`）：
+对于含非线性饱和、速率限制或任意外部输入的常微分方程初值问题，本库提供定步长 RK4（`simulate_step`）与基于步长折半 Richardson 外推的自适应积分（`simulate_step_richardson` / `simulate_step_adaptive`）：
 - **渐近误差指示器（Asymptotic Error Indicator）而非严格区间上界**：
   - 步长折半后验估计式 $\hat{E} = \frac{16}{15}|y^{(h/2)} - y^{(h)}|$ 与 `solve_ivp(method='RK45')` 的嵌入式误差估计同属**渐近主项近似**，忽略了 $\mathcal{O}((\|\mathbf{A}\|h)^6)$ 高阶余项。
   - **有效前提条件**：

@@ -172,7 +172,27 @@ pub fn Polynomial::roots(self : Polynomial) -> Array[Complex] {
     }
   }
 
-  // Higher degree: Durand-Kerner method
+  // Deflate exact roots at s = 0 (trailing zero coefficients) first
+  let mut zero_roots = 0
+  let mut last_idx = self.coeffs.length() - 1
+  while last_idx > 0 && self.coeffs[last_idx].abs() < 1.0e-14 {
+    zero_roots = zero_roots + 1
+    last_idx = last_idx - 1
+  }
+  if zero_roots > 0 {
+    let deflated_coeffs = Array(capacity=last_idx + 1)
+    for i = 0; i <= last_idx; i = i + 1 {
+      deflated_coeffs.push(self.coeffs[i])
+    }
+    let deflated_poly = Polynomial::new(deflated_coeffs)
+    let all_roots = deflated_poly.roots()
+    for z = 0; z < zero_roots; z = z + 1 {
+      all_roots.push(Complex::zero())
+    }
+    return all_roots
+  }
+
+  // Higher degree: Durand-Kerner method with geometric root-radius scaling
   // Normalize polynomial so leading coefficient is 1.0
   let lead = self.coeffs[0]
   let monic_coeffs = Array(capacity=self.coeffs.length())
@@ -182,16 +202,23 @@ pub fn Polynomial::roots(self : Polynomial) -> Array[Complex] {
   let monic = Polynomial::new(monic_coeffs)
 
   let n = deg
-  let current_roots = Array::make(n, Complex::zero())
-  // Initial points: z_k = (0.4 + 0.9i)^k
-  let base = Complex::new(0.4, 0.9)
-  let mut p = Complex::one()
-  for k = 0; k < n; k = k + 1 {
-    current_roots[k] = p
-    p = p * base
+  let const_mag = monic.coeffs[n].abs()
+  let radius = if const_mag > 1.0e-12 {
+    let r_geom = @math.pow(const_mag, 1.0 / n.to_double())
+    if r_geom > 0.5 { r_geom } else { 0.5 }
+  } else {
+    1.0
   }
 
-  let max_iter = 250
+  let current_roots = Array::make(n, Complex::zero())
+  // Initial points distributed around circle of radius `radius` with asymmetric phase offset
+  let two_pi = 8.0 * @math.atan(1.0)
+  for k = 0; k < n; k = k + 1 {
+    let angle = two_pi * k.to_double() / n.to_double() + 0.37
+    current_roots[k] = Complex::from_polar(radius, angle)
+  }
+
+  let max_iter = 400
   for _iter = 0; _iter < max_iter; _iter = _iter + 1 {
     let mut max_diff = 0.0
     for k = 0; k < n; k = k + 1 {

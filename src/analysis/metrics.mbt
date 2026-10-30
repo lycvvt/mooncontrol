@@ -75,11 +75,22 @@ pub extend InputType with Eq::{equal, not_equal}
 
 ///|
 /// Calculate steady-state error e_ss for unity feedback system with open-loop transfer function G(s).
-/// Uses Final Value Theorem based on system type (number of pure integrators at origin).
+/// Uses Final Value Theorem based on system type (number of pure integrators at origin),
+/// after verifying that the unity-feedback closed-loop system 1 + G(s) = 0 is Hurwitz stable.
 pub fn steady_state_error(
   open_loop : @tf.TransferFunction,
   input : InputType
 ) -> Result[Double, String] {
+  // Final Value Theorem requires closed-loop characteristic polynomial D(s) + N(s) to be Hurwitz stable
+  let cl_tf = open_loop.unity_feedback()
+  match routh_hurwitz(cl_tf.den) {
+    Ok(rh) =>
+      if !rh.is_stable {
+        return Err("Closed-loop system is unstable; Final Value Theorem is not applicable")
+      }
+    Err(e) => return Err(e)
+  }
+
   let den = open_loop.den.coeffs
   let num = open_loop.num.coeffs
   let den_len = den.length()

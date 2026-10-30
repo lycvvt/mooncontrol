@@ -38,19 +38,19 @@ pub extend ConvergenceStudy with Show::{output}
 /// error estimate valid when the step size lies in the asymptotic convergence regime
 /// (dimensionless step eta = |lambda_max| * dt <= 0.2) and the vector field is smooth (C^5).
 /// It serves as a practical engineering error indicator rather than an unconditional interval bound.
-pub(all) struct CertifiedSimulationResult {
+pub(all) struct StepDoublingSimulationResult {
   times : Array[Double]
   coarse_outputs : Array[Double]
   fine_outputs : Array[Double]
   extrapolated_outputs : Array[Double]
-  error_certificate_max : Double
-  error_certificate_rms : Double
+  estimated_error_max : Double
+  estimated_error_rms : Double
   dimensionless_step : Double
   is_within_stability_region : Bool
 } derive(Eq)
 
-pub extend CertifiedSimulationResult with Eq::{equal, not_equal}
-pub extend CertifiedSimulationResult with Show::{output}
+pub extend StepDoublingSimulationResult with Eq::{equal, not_equal}
+pub extend StepDoublingSimulationResult with Show::{output}
 
 ///|
 /// Adaptive step-size simulation result with local error control (atol, rtol).
@@ -70,11 +70,11 @@ pub extend AdaptiveSimulationResult with Show::{output}
 /// Simulate unit step response with an asymptotic Step-Doubling Richardson error estimate:
 ///   E_est(t_k) = 16/15 * |y^(dt/2)(t_k) - y^(dt)(t_k)|.
 /// Applicable scope: Smooth linear time-invariant systems with dimensionless step eta <= 0.2.
-pub fn simulate_step_certified(
+pub fn simulate_step_richardson(
   tf : @tf.TransferFunction,
   duration : Double,
   dt~ : Double = 0.005
-) -> Result[CertifiedSimulationResult, String] {
+) -> Result[StepDoublingSimulationResult, String] {
   let coarse = match simulate_step(tf, duration, dt~) {
     Ok(s) => s
     Err(e) => return Err(e)
@@ -122,8 +122,8 @@ pub fn simulate_step_certified(
     coarse_outputs: coarse.outputs,
     fine_outputs: fine_sampled,
     extrapolated_outputs: extrap,
-    error_certificate_max: max_est,
-    error_certificate_rms: rms_est,
+    estimated_error_max: max_est,
+    estimated_error_rms: rms_est,
     dimensionless_step: eta,
     is_within_stability_region: is_stable,
   })
@@ -284,7 +284,7 @@ pub fn evaluate_rk4_convergence(
 
   for i = 0; i < dts.length(); i = i + 1 {
     let dt = dts[i]
-    let cert = match simulate_step_certified(tf, duration, dt~) {
+    let cert = match simulate_step_richardson(tf, duration, dt~) {
       Ok(c) => c
       Err(e) => return Err(e)
     }
@@ -323,7 +323,7 @@ pub fn evaluate_rk4_convergence(
       dimensionless_step: bounds.max_pole_magnitude * dt,
       max_error: max_err,
       rms_error: rms,
-      richardson_error_est: cert.error_certificate_max,
+      richardson_error_est: cert.estimated_error_max,
       order_estimate: order,
     })
     prev_dt = dt
@@ -369,12 +369,12 @@ pub impl Show for ConvergenceStudy with output(self, logger) {
 }
 
 ///|
-pub fn CertifiedSimulationResult::to_string(self : CertifiedSimulationResult) -> String {
-  "CertifiedSimulationResult(points: \{self.times.length()}, eta: \{self.dimensionless_step}, max_err_cert: \{self.error_certificate_max}, stable: \{self.is_within_stability_region})"
+pub fn StepDoublingSimulationResult::to_string(self : StepDoublingSimulationResult) -> String {
+  "StepDoublingSimulationResult(points: \{self.times.length()}, eta: \{self.dimensionless_step}, max_err_est: \{self.estimated_error_max}, stable: \{self.is_within_stability_region})"
 }
 
 ///|
-pub impl Show for CertifiedSimulationResult with output(self, logger) {
+pub impl Show for StepDoublingSimulationResult with output(self, logger) {
   logger.write_string(self.to_string())
 }
 
