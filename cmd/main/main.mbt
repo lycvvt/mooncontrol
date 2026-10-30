@@ -48,7 +48,7 @@ fn main {
   }
   println("")
 
-  println("[Stage 2] Dimensionless Scaling & A Posteriori Richardson Error Certification")
+  println("[Stage 2] Dimensionless Scaling & Asymptotic Step-Doubling Error Estimation")
   println("--------------------------------------------------------------------------------")
   // Plant A: Standard 2nd-order underdamped DC motor servo G(s) = 10 / (s^2 + 2s + 10)
   let wn = (10.0 : Double).sqrt()
@@ -74,7 +74,7 @@ fn main {
     }
   }
 
-  println("Step-Size Convergence & Richardson A Posteriori Error Certificate (Plant A):")
+  println("Step-Size Convergence & Asymptotic Step-Doubling Error Indicator (Plant A):")
   println("  dt (s) | eta=|lam|*dt | True Max Error     | Richardson Est     | Order p")
   println("  -------+--------------+--------------------+--------------------+---------")
   for r in study.records {

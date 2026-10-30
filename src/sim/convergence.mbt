@@ -31,7 +31,13 @@ pub extend ConvergenceStudy with Eq::{equal, not_equal}
 pub extend ConvergenceStudy with Show::{output}
 
 ///|
-/// Simulation result certified by a posteriori Step-Doubling Richardson Extrapolation.
+/// Simulation result with an asymptotic Step-Doubling Richardson error indicator.
+///
+/// Numerical boundary (aligned with `scipy.integrate.solve_ivp` / Hairer-Nørsett-Wanner):
+/// The step-doubling difference 16/15 * |y^(dt/2) - y^(dt)| is an asymptotic a posteriori
+/// error estimate valid when the step size lies in the asymptotic convergence regime
+/// (dimensionless step eta = |lambda_max| * dt <= 0.2) and the vector field is smooth (C^5).
+/// It serves as a practical engineering error indicator rather than an unconditional interval bound.
 pub(all) struct CertifiedSimulationResult {
   times : Array[Double]
   coarse_outputs : Array[Double]
@@ -61,9 +67,9 @@ pub extend AdaptiveSimulationResult with Eq::{equal, not_equal}
 pub extend AdaptiveSimulationResult with Show::{output}
 
 ///|
-/// Simulate unit step response with a posteriori Step-Doubling Richardson Extrapolation error certificate:
-///   E_est(t_k) = |y^(dt/2)(t_k) - y^(dt)(t_k)| / (2^4 - 1) = |y^(dt/2)(t_k) - y^(dt)(t_k)| / 15.
-/// This eliminates open-loop step-size guessing by providing a computed error bound for any transfer function.
+/// Simulate unit step response with an asymptotic Step-Doubling Richardson error estimate:
+///   E_est(t_k) = 16/15 * |y^(dt/2)(t_k) - y^(dt)(t_k)|.
+/// Applicable scope: Smooth linear time-invariant systems with dimensionless step eta <= 0.2.
 pub fn simulate_step_certified(
   tf : @tf.TransferFunction,
   duration : Double,

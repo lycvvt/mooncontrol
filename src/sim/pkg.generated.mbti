@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn characteristic_polynomial(@num.Matrix) -> @num.Polynomial
+
 pub fn check_system_boundaries(@tf.TransferFunction) -> SystemStabilityBound
 
 pub fn closed_loop_pid_spectral_radius(@tf.TransferFunction, Double, Double, Double, Double) -> Result[Double, String]
@@ -17,6 +19,8 @@ pub fn error_against_first_order_analytic(Double, Double, SimulationResult) -> R
 pub fn error_against_second_order_analytic(Double, Double, SimulationResult) -> Result[Double, String]
 
 pub fn evaluate_rk4_convergence(@tf.TransferFunction, Double, Array[Double], (Double) -> Double) -> Result[ConvergenceStudy, String]
+
+pub fn matrix_exponential(@num.Matrix, Double) -> @num.Matrix
 
 pub fn measure_trajectory_metrics(SimulationResult, setpoint? : Double) -> TrajectoryMetrics
 

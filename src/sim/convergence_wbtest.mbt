@@ -134,3 +134,21 @@ test "Nonlinear closed-loop simulation: actuator saturation, anti-windup, transp
   assert_true(metrics_with_aw.iae < metrics_no_aw.iae)
   assert_true(metrics_with_aw.steady_state_error < 0.02)
 }
+
+test "Scaling-and-squaring matrix exponential and Faddeev-LeVerrier characteristic polynomial" {
+  // 2x2 harmonic oscillator A = [[0, 1], [-1, 0]], exp(A * pi/2) = [[0, 1], [-1, 0]]
+  let a = @num.Matrix::new(2, 2, [0.0, 1.0, -1.0, 0.0])
+  let pi_half = 2.0 * @math.atan(1.0)
+  let exp_a = matrix_exponential(a, pi_half)
+  assert_true(exp_a.get(0, 0).abs() < 1.0e-12)
+  assert_true((exp_a.get(0, 1) - 1.0).abs() < 1.0e-12)
+  assert_true((exp_a.get(1, 0) + 1.0).abs() < 1.0e-12)
+  assert_true(exp_a.get(1, 1).abs() < 1.0e-12)
+
+  // Characteristic polynomial of A = [[0, 1], [-10, -2]] is s^2 + 2s + 10
+  let a2 = @num.Matrix::new(2, 2, [0.0, 1.0, -10.0, -2.0])
+  let poly = characteristic_polynomial(a2)
+  assert_true((poly.coeffs[0] - 1.0).abs() < 1.0e-12)
+  assert_true((poly.coeffs[1] - 2.0).abs() < 1.0e-12)
+  assert_true((poly.coeffs[2] - 10.0).abs() < 1.0e-12)
+}
